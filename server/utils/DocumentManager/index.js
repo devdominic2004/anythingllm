@@ -67,6 +67,24 @@ class DocumentManager {
     );
     return pinnedDocs;
   }
+
+  async getDocsByPaths(docPaths = []) {
+    if (!this.workspace || docPaths.length === 0) return [];
+
+    const docs = [];
+    for await (const docPath of docPaths) {
+      try {
+        const filePath = path.resolve(this.documentStoragePath, docPath);
+        const data = JSON.parse(
+          fs.readFileSync(filePath, { encoding: "utf-8" })
+        );
+        docs.push(data);
+      } catch (e) {
+        this.log(`Could not resolve document for path ${docPath}`);
+      }
+    }
+    return docs;
+  }
 }
 
 module.exports.DocumentManager = DocumentManager;

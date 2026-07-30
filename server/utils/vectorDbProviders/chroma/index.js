@@ -129,6 +129,8 @@ class Chroma extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const collection = await client.getCollection({
       name: this.normalize(namespace),
@@ -148,9 +150,11 @@ class Chroma extends VectorDatabase {
       const similarity = this.distanceToSimilarity(response.distances[0][i]);
       if (similarity < similarityThreshold) return;
 
-      if (
-        filterIdentifiers.includes(sourceIdentifier(response.metadatas[0][i]))
-      ) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(response.metadatas[0][i]))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(response.metadatas[0][i]))) {
         this.logger(
           "A source was filtered from context as it's parent document is pinned."
         );
@@ -367,6 +371,8 @@ class Chroma extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     if (!namespace || !input || !LLMConnector)
       throw new Error("Invalid request to performSimilaritySearch.");
@@ -389,6 +395,8 @@ class Chroma extends VectorDatabase {
         similarityThreshold,
         topN,
         filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
       });
 
     const sources = sourceDocuments.map((metadata, i) => ({

@@ -46,6 +46,7 @@ const SystemSettings = {
     "max_embed_chunk_size",
     "agent_search_provider",
     "agent_sql_connections",
+    "document_vision",
     "default_agent_skills",
     "disabled_agent_skills",
     "disabled_filesystem_skills",
@@ -71,6 +72,7 @@ const SystemSettings = {
     "telemetry_id",
     "footer_data",
     "support_email",
+    "document_vision",
 
     "text_splitter_chunk_size",
     "text_splitter_chunk_overlap",

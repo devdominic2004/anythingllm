@@ -97,6 +97,8 @@ class LanceDb extends VectorDatabase {
     topN = 4,
     similarityThreshold = 0.25,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const reranker = new NativeEmbeddingReranker();
     const collection = await client.openTable(namespace);
@@ -137,7 +139,11 @@ class LanceDb extends VectorDatabase {
           if (this.distanceToSimilarity(item._distance) < similarityThreshold)
             return;
           const { vector: _, ...rest } = item;
-          if (filterIdentifiers.includes(sourceIdentifier(rest))) {
+          const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(rest))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(rest))) {
             this.logger(
               "A source was filtered from context as it's parent document is pinned."
             );
@@ -180,6 +186,8 @@ class LanceDb extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const collection = await client.openTable(namespace);
     const result = {
@@ -198,7 +206,11 @@ class LanceDb extends VectorDatabase {
       if (this.distanceToSimilarity(item._distance) < similarityThreshold)
         return;
       const { vector: _, ...rest } = item;
-      if (filterIdentifiers.includes(sourceIdentifier(rest))) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(rest))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(rest))) {
         this.logger(
           "A source was filtered from context as it's parent document is pinned."
         );
@@ -414,6 +426,8 @@ class LanceDb extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
     rerank = false,
   }) {
     if (!namespace || !input || !LLMConnector)
@@ -438,6 +452,8 @@ class LanceDb extends VectorDatabase {
           similarityThreshold,
           topN,
           filterIdentifiers,
+          includeIdentifiers,
+          excludeIdentifiers,
         })
       : await this.similarityResponse({
           client,
@@ -446,6 +462,8 @@ class LanceDb extends VectorDatabase {
           similarityThreshold,
           topN,
           filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
         });
 
     const { contextTexts, sourceDocuments } = result;

@@ -22,7 +22,9 @@ async function streamChatWithWorkspace(
   chatMode = "automatic",
   user = null,
   thread = null,
-  attachments = []
+  attachments = [],
+  includeDocuments = [],
+  excludeDocuments = []
 ) {
   const uuid = uuidv4();
   const updatedMessage = await grepCommand(message, user);
@@ -139,12 +141,19 @@ async function streamChatWithWorkspace(
   (await recentChatHistory({ user, workspace, thread, messageLimit }));
 
   // Pinned docs — reuse pre-fetched if available, otherwise fetch with token cap.
-  const pinnedDocs =
-    prefetchedPinnedDocs ??
-    (await new DocumentManager({
-      workspace,
-      maxTokens: LLMConnector.promptWindowLimit(),
-    }).pinnedDocs());
+  const docManager = new DocumentManager({
+    workspace,
+    maxTokens: LLMConnector.promptWindowLimit(),
+  });
+
+  const pinnedDocs = prefetchedPinnedDocs ?? (await docManager.pinnedDocs());
+  
+  const includedDocs = await docManager.getDocsByPaths(includeDocuments);
+  const includeDocIdentifiers = includedDocs.map((doc) => sourceIdentifier(doc));
+
+  const excludedDocs = await docManager.getDocsByPaths(excludeDocuments);
+  const excludeDocIdentifiers = excludedDocs.map((doc) => sourceIdentifier(doc));
+
   pinnedDocs.forEach((doc) => {
     const { pageContent, ...metadata } = doc;
     pinnedDocIdentifiers.push(sourceIdentifier(doc));
@@ -174,22 +183,50 @@ async function streamChatWithWorkspace(
     });
   });
 
-  const vectorSearchResults =
-    embeddingsCount !== 0
-      ? await VectorDb.performSimilaritySearch({
-          namespace: workspace.slug,
-          input: updatedMessage,
-          LLMConnector,
-          similarityThreshold: workspace?.similarityThreshold,
-          topN: workspace?.topN,
-          filterIdentifiers: pinnedDocIdentifiers,
-          rerank: workspace?.vectorSearchMode === "rerank",
-        })
-      : {
-          contextTexts: [],
-          sources: [],
-          message: null,
-        };
+  let vectorSearchResults = {
+    contextTexts: [],
+    sources: [],
+    message: null,
+  };
+
+  if (embeddingsCount !== 0) {
+    let queriesToRun = [updatedMessage];
+    
+    if (workspace.queryReformulation) {
+      const { reformulateQuery } = require("../helpers/chat/reformulate");
+      queriesToRun = await reformulateQuery(updatedMessage, LLMConnector);
+    }
+    
+    const uniqueSources = new Map();
+    const allContextTexts = new Set();
+    
+    for (const query of queriesToRun) {
+      const results = await VectorDb.performSimilaritySearch({
+        namespace: workspace.slug,
+        input: query,
+        LLMConnector,
+        similarityThreshold: workspace?.similarityThreshold,
+        topN: workspace?.topN,
+        filterIdentifiers: pinnedDocIdentifiers,
+        includeIdentifiers: includeDocIdentifiers,
+        excludeIdentifiers: excludeDocIdentifiers,
+        rerank: workspace?.vectorSearchMode === "rerank",
+      });
+      
+      if (results.message) {
+        vectorSearchResults.message = results.message;
+        break; // Stop on error
+      }
+      
+      results.sources.forEach(source => uniqueSources.set(sourceIdentifier(source), source));
+      results.contextTexts.forEach(text => allContextTexts.add(text));
+    }
+    
+    if (!vectorSearchResults.message) {
+      vectorSearchResults.sources = Array.from(uniqueSources.values());
+      vectorSearchResults.contextTexts = Array.from(allContextTexts);
+    }
+  }
 
   // Failed similarity search if it was run at all and failed.
   if (!!vectorSearchResults.message) {

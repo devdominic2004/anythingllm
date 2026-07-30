@@ -318,6 +318,8 @@ class AstraDB extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     if (!namespace || !input || !LLMConnector)
       throw new Error("Invalid request to performSimilaritySearch.");
@@ -343,6 +345,8 @@ class AstraDB extends VectorDatabase {
       similarityThreshold,
       topN,
       filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
     });
 
     const sources = sourceDocuments.map((metadata, i) => {
@@ -362,6 +366,8 @@ class AstraDB extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const result = {
       contextTexts: [],
@@ -384,7 +390,11 @@ class AstraDB extends VectorDatabase {
 
     responses.forEach((response) => {
       if (response.$similarity < similarityThreshold) return;
-      if (filterIdentifiers.includes(sourceIdentifier(response.metadata))) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(response.metadata))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(response.metadata))) {
         this.logger(
           "A source was filtered from context as it's parent document is pinned."
         );

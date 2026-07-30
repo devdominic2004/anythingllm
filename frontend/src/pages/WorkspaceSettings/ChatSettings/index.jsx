@@ -9,6 +9,7 @@ import ChatTemperatureSettings from "./ChatTemperatureSettings";
 import ChatModeSelection from "./ChatModeSelection";
 import WorkspaceLLMSelection from "./WorkspaceLLMSelection";
 import ChatQueryRefusalResponse from "./ChatQueryRefusalResponse";
+import ChatQueryReformulation from "./ChatQueryReformulation";
 import CTAButton from "@/components/lib/CTAButton";
 
 export default function ChatSettings({ workspace }) {
@@ -68,6 +69,10 @@ export default function ChatSettings({ workspace }) {
           setHasChanges={setHasChanges}
         />
         <ChatModeSelection
+          workspace={workspace}
+          setHasChanges={setHasChanges}
+        />
+        <ChatQueryReformulation
           workspace={workspace}
           setHasChanges={setHasChanges}
         />

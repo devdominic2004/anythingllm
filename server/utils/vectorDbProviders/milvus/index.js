@@ -319,6 +319,8 @@ class Milvus extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     if (!namespace || !input || !LLMConnector)
       throw new Error("Invalid request to performSimilaritySearch.");
@@ -340,6 +342,8 @@ class Milvus extends VectorDatabase {
       similarityThreshold,
       topN,
       filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
     });
 
     const sources = sourceDocuments.map((doc, i) => {
@@ -360,6 +364,8 @@ class Milvus extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const result = {
       contextTexts: [],
@@ -373,7 +379,11 @@ class Milvus extends VectorDatabase {
     });
     response.results.forEach((match) => {
       if (match.score < similarityThreshold) return;
-      if (filterIdentifiers.includes(sourceIdentifier(match.metadata))) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(match.metadata))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(match.metadata))) {
         this.logger(
           `${this.name}: A source was filtered from context as its parent document is pinned.`
         );

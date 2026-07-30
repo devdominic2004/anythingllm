@@ -56,6 +56,7 @@ const Workspace = {
     "agentModel",
     "queryRefusalResponse",
     "vectorSearchMode",
+    "queryReformulation",
     "router_id",
   ],
 
@@ -137,6 +138,9 @@ const Workspace = {
       const id = Number(value);
       if (isNaN(id)) return null;
       return id;
+    },
+    queryReformulation: (value) => {
+      return value === true || value === "true";
     },
   },
 

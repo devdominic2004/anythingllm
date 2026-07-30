@@ -660,6 +660,8 @@ function apiWorkspaceEndpoints(app) {
           sessionId = null,
           attachments = [],
           reset = false,
+          includeDocuments = [],
+          excludeDocuments = [],
         } = reqBody(request);
         const workspace = await Workspace.get({ slug: String(slug) });
 
@@ -702,6 +704,8 @@ function apiWorkspaceEndpoints(app) {
           sessionId: !!sessionId ? String(sessionId) : null,
           attachments,
           reset,
+          includeDocuments,
+          excludeDocuments,
         });
 
         await Telemetry.sendTelemetry("sent_chat", {

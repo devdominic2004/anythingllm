@@ -121,7 +121,9 @@ class VectorDatabase {
    * @param {any} params.LLMConnector - LLM connector for embeddings
    * @param {number} params.similarityThreshold - Similarity threshold
    * @param {number} params.topN - Number of results to return
-   * @param {string[]} params.filterIdentifiers - Identifiers to filter out
+   * @param {string[]} params.filterIdentifiers - Identifiers to filter out (legacy pinned logic)
+   * @param {string[]} params.includeIdentifiers - Identifiers to search exclusively within
+   * @param {string[]} params.excludeIdentifiers - Identifiers to filter out
    * @returns {Promise<{contextTexts: string[], sources: any[], message: string|boolean}>}
    */
   async performSimilaritySearch({
@@ -131,6 +133,8 @@ class VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     throw new Error("Must be implemented by provider");
   }
@@ -143,7 +147,9 @@ class VectorDatabase {
    * @param {number[]} params.queryVector - Query vector
    * @param {number} params.similarityThreshold - Similarity threshold
    * @param {number} params.topN - Number of results to return
-   * @param {string[]} params.filterIdentifiers - Identifiers to filter out
+   * @param {string[]} params.filterIdentifiers - Identifiers to filter out (legacy pinned logic)
+   * @param {string[]} params.includeIdentifiers - Identifiers to search exclusively within
+   * @param {string[]} params.excludeIdentifiers - Identifiers to filter out
    * @returns {Promise<{contextTexts: string[], sourceDocuments: any[], scores: number[]}>}
    */
   async similarityResponse({

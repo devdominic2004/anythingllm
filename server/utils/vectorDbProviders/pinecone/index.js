@@ -47,6 +47,17 @@ class PineconeDB extends VectorDatabase {
     return namespace?.recordCount || 0;
   }
 
+  /**
+   * @param {Object} params
+   * @param {import("@pinecone-database/pinecone").Pinecone} params.client
+   * @param {string} params.namespace
+   * @param {number[]} params.queryVector
+   * @param {number} params.similarityThreshold
+   * @param {number} params.topN
+   * @param {string[]} params.filterIdentifiers
+   * @param {string[]} params.includeIdentifiers
+   * @param {string[]} params.excludeIdentifiers
+   */
   async similarityResponse({
     client,
     namespace,
@@ -54,6 +65,8 @@ class PineconeDB extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const result = {
       contextTexts: [],
@@ -68,11 +81,18 @@ class PineconeDB extends VectorDatabase {
       includeMetadata: true,
     });
 
+    const allExcluded = [...filterIdentifiers, ...excludeIdentifiers];
+
     response.matches.forEach((match) => {
       if (match.score < similarityThreshold) return;
-      if (filterIdentifiers.includes(sourceIdentifier(match.metadata))) {
+      const sourceId = sourceIdentifier(match.metadata);
+
+      if (includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceId)) {
+        return;
+      }
+      if (allExcluded.includes(sourceId)) {
         this.logger(
-          "Pinecone: A source was filtered from context as it's parent document is pinned."
+          "Pinecone: A source was filtered from context."
         );
         return;
       }
@@ -267,6 +287,8 @@ class PineconeDB extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     if (!namespace || !input || !LLMConnector)
       throw new Error("Invalid request to performSimilaritySearch.");
@@ -285,6 +307,8 @@ class PineconeDB extends VectorDatabase {
       similarityThreshold,
       topN,
       filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
     });
 
     const sources = sourceDocuments.map((doc, i) => {

@@ -94,6 +94,8 @@ class Weaviate extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const result = {
       contextTexts: [],
@@ -121,7 +123,11 @@ class Weaviate extends VectorDatabase {
         ...rest
       } = response;
       if (certainty < similarityThreshold) return;
-      if (filterIdentifiers.includes(sourceIdentifier(rest))) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(rest))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(rest))) {
         this.logger(
           "A source was filtered from context as it's parent document is pinned."
         );
@@ -390,6 +396,8 @@ class Weaviate extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     if (!namespace || !input || !LLMConnector)
       throw new Error("Invalid request to performSimilaritySearch.");
@@ -411,6 +419,8 @@ class Weaviate extends VectorDatabase {
       similarityThreshold,
       topN,
       filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
     });
 
     const sources = sourceDocuments.map((metadata, i) => {

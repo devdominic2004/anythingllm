@@ -379,6 +379,8 @@ class PGVector extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const result = {
       contextTexts: [],
@@ -394,7 +396,11 @@ class PGVector extends VectorDatabase {
     response.rows.forEach((item) => {
       if (this.distanceToSimilarity(item._distance) < similarityThreshold)
         return;
-      if (filterIdentifiers.includes(sourceIdentifier(item.metadata))) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(item.metadata))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(item.metadata))) {
         this.logger(
           "A source was filtered from context as it's parent document is pinned."
         );
@@ -718,6 +724,8 @@ class PGVector extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     let connection = null;
     if (!namespace || !input || !LLMConnector)
@@ -745,6 +753,8 @@ class PGVector extends VectorDatabase {
         similarityThreshold,
         topN,
         filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
       });
 
       const { contextTexts, sourceDocuments } = result;

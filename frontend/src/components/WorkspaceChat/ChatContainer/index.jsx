@@ -128,6 +128,8 @@ export default function ChatContainer({
         content: currentMessage,
         role: "user",
         attachments: parseAttachments(),
+        includeDocuments: document.getElementById("doc-filters-include")?.value?.split(',').filter(Boolean) || [],
+        excludeDocuments: document.getElementById("doc-filters-exclude")?.value?.split(',').filter(Boolean) || [],
       },
       {
         content: "",
@@ -214,6 +216,9 @@ export default function ChatContainer({
     // If we are auto-submitting
     // Then we can replace the current text since this is not accumulating.
     let prevChatHistory;
+    const includeDocuments = document.getElementById("doc-filters-include")?.value?.split(',').filter(Boolean) || [];
+    const excludeDocuments = document.getElementById("doc-filters-exclude")?.value?.split(',').filter(Boolean) || [];
+
     if (history.length > 0) {
       // use pre-determined history chain.
       prevChatHistory = [
@@ -224,6 +229,8 @@ export default function ChatContainer({
           pending: true,
           userMessage: text,
           attachments,
+          includeDocuments,
+          excludeDocuments,
           animate: true,
         },
       ];
@@ -234,6 +241,8 @@ export default function ChatContainer({
           content: text,
           role: "user",
           attachments,
+          includeDocuments,
+          excludeDocuments,
         },
         {
           content: "",
@@ -241,6 +250,8 @@ export default function ChatContainer({
           pending: true,
           userMessage: text,
           attachments,
+          includeDocuments,
+          excludeDocuments,
           animate: true,
         },
       ];
@@ -325,7 +336,15 @@ export default function ChatContainer({
       // If running and edit or regeneration, this history will already have attachments
       // so no need to parse the current state.
       const attachments = promptMessage?.attachments ?? parseAttachments();
+      const includeDocuments = promptMessage?.includeDocuments || [];
+      const excludeDocuments = promptMessage?.excludeDocuments || [];
       window.dispatchEvent(new CustomEvent(CLEAR_ATTACHMENTS_EVENT));
+
+      // Reset doc filters after sending message
+      const incInput = document.getElementById("doc-filters-include");
+      const excInput = document.getElementById("doc-filters-exclude");
+      if (incInput) incInput.value = "";
+      if (excInput) excInput.value = "";
 
       await Workspace.multiplexStream({
         workspaceSlug: workspace.slug,
@@ -341,6 +360,8 @@ export default function ChatContainer({
             setSocketId
           ),
         attachments,
+        includeDocuments,
+        excludeDocuments,
       });
       return;
     }

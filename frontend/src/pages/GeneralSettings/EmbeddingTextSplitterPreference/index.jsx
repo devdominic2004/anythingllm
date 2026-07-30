@@ -59,12 +59,13 @@ export default function EmbeddingTextSplitterPreference() {
         )
           ? 1000
           : Number(form.get("text_splitter_chunk_overlap")),
+        document_vision: form.get("document_vision"),
       });
       setHasChanges(false);
       closeModal();
-      showToast("Text chunking strategy settings saved.", "success");
+      showToast("Settings saved successfully.", "success");
     } catch {
-      showToast("Failed to save text chunking strategy settings.", "error");
+      showToast("Failed to save settings.", "error");
     } finally {
       setSaving(false);
     }
@@ -77,6 +78,7 @@ export default function EmbeddingTextSplitterPreference() {
           "text_splitter_chunk_size",
           "text_splitter_chunk_overlap",
           "max_embed_chunk_size",
+          "document_vision",
         ])
       )?.settings;
       setSettings(_settings ?? {});
@@ -186,6 +188,29 @@ export default function EmbeddingTextSplitterPreference() {
                     required={true}
                     autoComplete="off"
                   />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-y-4 mt-8 pb-4">
+                <div className="flex flex-col max-w-[500px]">
+                  <div className="flex flex-col gap-y-2 mb-4">
+                    <label className="text-white text-sm font-semibold block">
+                      Enable Document Vision
+                    </label>
+                    <p className="text-xs text-white/60">
+                      When enabled, uploaded images and images embedded inside documents (.docx, .pdf) will be processed by your active Vision LLM to generate rich descriptions before being saved.
+                      <i> Note: This may significantly increase ingestion time and API costs depending on your model.</i>
+                    </p>
+                  </div>
+                  <select
+                    name="document_vision"
+                    className="border-none bg-theme-settings-input-bg text-white text-sm rounded-lg focus:outline-primary-button active:outline-primary-button outline-none block w-full p-2.5"
+                    onChange={() => setHasChanges(true)}
+                    defaultValue={settings?.document_vision === "true" ? "true" : "false"}
+                  >
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
                 </div>
               </div>
             </div>

@@ -109,13 +109,22 @@ class CollectorApi {
    * @param {Object} metadata - Optional metadata key:value pairs
    * @returns {Promise<Object>} - The response from the collector API
    */
-  async processDocument(filename = "", metadata = {}) {
+  async processDocument(filename = "", metadata = {}, additionalOptions = {}) {
     if (!filename) return false;
+
+    const { SystemSettings } = require("../../models/systemSettings");
+    const documentVisionEnabled =
+      (await SystemSettings.get({ label: "document_vision" }))?.value ===
+      "true";
+    additionalOptions = {
+      documentVision: documentVisionEnabled,
+      ...additionalOptions,
+    };
 
     const data = JSON.stringify({
       filename,
       metadata,
-      options: this.#attachOptions(),
+      options: { ...this.#attachOptions(), ...additionalOptions },
     });
 
     return await fetch(`${this.endpoint}/process`, {
@@ -130,11 +139,40 @@ class CollectorApi {
       body: data,
       dispatcher: new Agent({ headersTimeout: 600000 }),
     })
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) throw new Error("Response could not be completed");
-        return res.json();
+        const jsonRes = await res.json();
+
+        // Vision must finish (and rewrite the cached JSON) before callers like
+        // upload-and-embed read pageContent for chunking/embedding.
+        if (
+          documentVisionEnabled &&
+          jsonRes?.success &&
+          Array.isArray(jsonRes.documents)
+        ) {
+          const { appendVisionDescriptionsToDocuments } = require("../helpers/chat/documentVision");
+          jsonRes.documents = await appendVisionDescriptionsToDocuments(
+            jsonRes.documents,
+            { log: this.log.bind(this) }
+          );
+
+          // Image-only docs can succeed from the collector with empty text when
+          // vision is enabled; fail clearly if descriptions never landed.
+          if (
+            jsonRes.documents.length > 0 &&
+            jsonRes.documents.every((doc) => !(doc.pageContent || "").trim())
+          ) {
+            return {
+              success: false,
+              reason:
+                "Document Vision produced no embeddable text. Ensure your active LLM supports vision, or the document contains extractable images/text.",
+              documents: [],
+            };
+          }
+        }
+
+        return jsonRes;
       })
-      .then((res) => res)
       .catch((e) => {
         this.log(e.message);
         return { success: false, reason: e.message, documents: [] };

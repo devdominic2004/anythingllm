@@ -123,6 +123,8 @@ async function chatSync({
   sessionId = null,
   attachments = [],
   reset = false,
+  includeDocuments = [],
+  excludeDocuments = [],
 }) {
   const uuid = uuidv4();
   const chatMode = mode ?? workspace?.chatMode ?? "automatic";

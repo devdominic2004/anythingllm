@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import debounce from "lodash.debounce";
-import { ArrowUp, At } from "@phosphor-icons/react";
+import { ArrowUp, At, X } from "@phosphor-icons/react";
 import StopGenerationButton from "./StopGenerationButton";
 import SpeechToText from "./SpeechToText";
 import { Tooltip } from "react-tooltip";
@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import Appearance from "@/models/appearance";
 import usePromptInputStorage from "@/hooks/usePromptInputStorage";
 import ToolsMenu, { TOOLS_MENU_KEYBOARD_EVENT } from "./ToolsMenu";
+import DocMenu from "./DocMenu";
 import { useSearchParams } from "react-router-dom";
 import { useIsAgentSessionActive } from "@/utils/chat/agent";
 
@@ -49,6 +50,9 @@ export default function PromptInput({
   const agentSessionActive = useIsAgentSessionActive();
   const [promptInput, setPromptInput] = useState("");
   const [showTools, setShowTools] = useState(false);
+  const [showDocMenu, setShowDocMenu] = useState(false);
+  const [docMenuPrefix, setDocMenuPrefix] = useState("");
+  const [docFilters, setDocFilters] = useState({ include: [], exclude: [] });
   const autoOpenedToolsRef = useRef(false);
   const toolsHighlightRef = useRef(-1);
   const formRef = useRef(null);
@@ -88,7 +92,10 @@ export default function PromptInput({
     if (writeMode === "append") setPromptInput((prev) => prev + messageContent);
     else if (writeMode === "prepend")
       setPromptInput((prev) => messageContent + " " + prev);
-    else setPromptInput(messageContent ?? "");
+    else {
+      setPromptInput(messageContent ?? "");
+      if (!messageContent) setDocFilters({ include: [], exclude: [] });
+    }
   }
 
   useEffect(() => {
@@ -123,6 +130,7 @@ export default function PromptInput({
     if (e.target !== e.currentTarget) return;
     setFocused(false);
     setShowTools(false);
+    setShowDocMenu(false);
     submit(e);
   }
 
@@ -164,6 +172,7 @@ export default function PromptInput({
       if (event.key === "Escape") {
         event.preventDefault();
         setShowTools(false);
+        setShowDocMenu(false);
         textareaRef.current?.focus();
         return;
       }
@@ -180,6 +189,12 @@ export default function PromptInput({
         autoOpenedToolsRef.current = !prev;
         return !prev;
       });
+      return;
+    }
+
+    // Do not submit form if DocMenu is open and intercepting Enter
+    if (showDocMenu && event.key === "Enter") {
+      event.preventDefault();
       return;
     }
 
@@ -309,6 +324,16 @@ export default function PromptInput({
       setShowTools(false);
       autoOpenedToolsRef.current = false;
     }
+
+    const cursorPosition = e.target.selectionEnd;
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    if (textBeforeCursor.endsWith("@doc")) {
+      setDocMenuPrefix("@doc");
+      setShowDocMenu(true);
+    } else if (textBeforeCursor.endsWith("-@doc")) {
+      setDocMenuPrefix("-@doc");
+      setShowDocMenu(true);
+    }
   }
 
   return (
@@ -341,7 +366,49 @@ export default function PromptInput({
               centered={centered}
               highlightedIndexRef={toolsHighlightRef}
             />
+            <DocMenu
+              workspace={workspace}
+              showing={showDocMenu}
+              setShowing={setShowDocMenu}
+              promptRef={textareaRef}
+              onSelect={(docpath) => {
+                const textarea = textareaRef.current;
+                const start = textarea.selectionStart;
+                
+                // Find the start of the prefix
+                let targetStart = start;
+                let isExclude = false;
+                if (promptInput.slice(0, start).endsWith("-@doc")) {
+                  targetStart = start - 5;
+                  isExclude = true;
+                } else if (promptInput.slice(0, start).endsWith("@doc")) {
+                  targetStart = start - 4;
+                }
+
+                // Delete the trigger text entirely!
+                const newText = promptInput.slice(0, targetStart) + promptInput.slice(start);
+                setPromptInput(newText);
+                
+                // Add to chip filters
+                setDocFilters(prev => {
+                  const filterType = isExclude ? "exclude" : "include";
+                  if (!prev[filterType].includes(docpath)) {
+                    return { ...prev, [filterType]: [...prev[filterType], docpath] };
+                  }
+                  return prev;
+                });
+
+                setShowDocMenu(false);
+                setTimeout(() => {
+                  textarea.focus();
+                  textarea.selectionStart = textarea.selectionEnd = targetStart;
+                }, 10);
+              }}
+            />
             <div className="bg-zinc-800 light:bg-white light:border light:border-slate-300 rounded-[20px] pwa:rounded-3xl flex flex-col px-5 overflow-hidden">
+              <input type="hidden" id="doc-filters-include" value={docFilters.include.join(',')} />
+              <input type="hidden" id="doc-filters-exclude" value={docFilters.exclude.join(',')} />
+              <DocFilterManager docFilters={docFilters} setDocFilters={setDocFilters} />
               <AttachmentManager attachments={attachments} />
               <div className="flex items-center">
                 <textarea
@@ -551,4 +618,55 @@ function useIsDisabled() {
   }, []);
 
   return { isDisabled };
+}
+
+function DocFilterManager({ docFilters, setDocFilters }) {
+  if (docFilters.include.length === 0 && docFilters.exclude.length === 0) return null;
+
+  const removeFilter = (type, path) => {
+    setDocFilters((prev) => ({
+      ...prev,
+      [type]: prev[type].filter((p) => p !== path),
+    }));
+  };
+
+  const getDisplayName = (docpath) => {
+    if (docpath.endsWith('/')) {
+      return docpath.slice(0, -1).split('/').pop() + ' (Folder)';
+    }
+    return docpath.split('/').pop();
+  };
+
+  return (
+    <div className="flex flex-nowrap gap-2 mt-2 mb-2 overflow-x-auto no-scroll shrink-0">
+      {docFilters.include.map((docpath) => (
+        <div key={`inc-${docpath}`} className="flex items-center shrink-0 gap-x-1 rounded-full bg-green-500/10 border border-green-500/20 px-3 py-1 group">
+          <span className="text-green-500 text-xs font-semibold truncate max-w-[200px]" title={docpath}>
+            + {getDisplayName(docpath)}
+          </span>
+          <button
+            type="button"
+            onClick={() => removeFilter('include', docpath)}
+            className="text-green-500/70 hover:text-green-500 p-0.5 rounded-full shrink-0"
+          >
+            <X size={12} weight="bold" />
+          </button>
+        </div>
+      ))}
+      {docFilters.exclude.map((docpath) => (
+        <div key={`exc-${docpath}`} className="flex items-center shrink-0 gap-x-1 rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1 group">
+          <span className="text-red-500 text-xs font-semibold truncate max-w-[200px]" title={docpath}>
+            - {getDisplayName(docpath)}
+          </span>
+          <button
+            type="button"
+            onClick={() => removeFilter('exclude', docpath)}
+            className="text-red-500/70 hover:text-red-500 p-0.5 rounded-full shrink-0"
+          >
+            <X size={12} weight="bold" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }

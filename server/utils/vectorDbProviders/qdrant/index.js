@@ -66,6 +66,8 @@ class QDrant extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     const result = {
       contextTexts: [],
@@ -81,7 +83,11 @@ class QDrant extends VectorDatabase {
 
     responses.forEach((response) => {
       if (response.score < similarityThreshold) return;
-      if (filterIdentifiers.includes(sourceIdentifier(response?.payload))) {
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(response?.payload))) {
+        return;
+      }
+      if (allExcluded.includes(sourceIdentifier(response?.payload))) {
         this.logger(
           "QDrant: A source was filtered from context as it's parent document is pinned."
         );
@@ -355,6 +361,8 @@ class QDrant extends VectorDatabase {
     similarityThreshold = 0.25,
     topN = 4,
     filterIdentifiers = [],
+    includeIdentifiers = [],
+    excludeIdentifiers = [],
   }) {
     if (!namespace || !input || !LLMConnector)
       throw new Error("Invalid request to performSimilaritySearch.");
@@ -376,6 +384,8 @@ class QDrant extends VectorDatabase {
       similarityThreshold,
       topN,
       filterIdentifiers,
+      includeIdentifiers,
+      excludeIdentifiers,
     });
 
     const sources = sourceDocuments.map((metadata, i) => {
