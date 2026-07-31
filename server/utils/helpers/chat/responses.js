@@ -201,6 +201,8 @@ function convertToChatHistory(history = []) {
         content: prompt,
         sentAt: moment(createdAt).unix(),
         attachments: data?.attachments ?? [],
+        includeDocuments: data?.includeDocuments ?? [],
+        excludeDocuments: data?.excludeDocuments ?? [],
         chatId: id,
       },
       {

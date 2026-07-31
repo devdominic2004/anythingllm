@@ -84,10 +84,12 @@ class PineconeDB extends VectorDatabase {
     const allExcluded = [...filterIdentifiers, ...excludeIdentifiers];
 
     response.matches.forEach((match) => {
-      if (match.score < similarityThreshold) return;
       const sourceId = sourceIdentifier(match.metadata);
+      const isIncluded = includeIdentifiers.length > 0 && includeIdentifiers.includes(sourceId);
 
-      if (includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceId)) {
+      if (!isIncluded && match.score < similarityThreshold) return;
+
+      if (includeIdentifiers.length > 0 && !isIncluded) {
         return;
       }
       if (allExcluded.includes(sourceId)) {

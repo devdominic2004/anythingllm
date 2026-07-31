@@ -72,16 +72,27 @@ class DocumentManager {
     if (!this.workspace || docPaths.length === 0) return [];
 
     const docs = [];
-    for await (const docPath of docPaths) {
+    
+    const readPath = (targetPath) => {
       try {
-        const filePath = path.resolve(this.documentStoragePath, docPath);
-        const data = JSON.parse(
-          fs.readFileSync(filePath, { encoding: "utf-8" })
-        );
-        docs.push(data);
+        const stat = fs.statSync(targetPath);
+        if (stat.isDirectory()) {
+          const files = fs.readdirSync(targetPath);
+          for (const file of files) {
+            readPath(path.join(targetPath, file));
+          }
+        } else if (targetPath.endsWith(".json")) {
+          const data = JSON.parse(fs.readFileSync(targetPath, { encoding: "utf-8" }));
+          docs.push(data);
+        }
       } catch (e) {
-        this.log(`Could not resolve document for path ${docPath}`);
+        this.log(`Could not resolve document for path ${targetPath}`);
       }
+    };
+
+    for await (const docPath of docPaths) {
+      const filePath = path.resolve(this.documentStoragePath, docPath);
+      readPath(filePath);
     }
     return docs;
   }

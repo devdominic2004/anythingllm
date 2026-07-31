@@ -88,13 +88,14 @@ export default function PromptInput({
    * @param {{detail: {messageContent: string, writeMode: 'replace' | 'append'}}} e
    */
   function handlePromptUpdate(e) {
-    const { messageContent, writeMode = "replace" } = e?.detail ?? {};
+    const { messageContent, writeMode = "replace", clearDocs = false, restoreDocs = null } = e?.detail ?? {};
     if (writeMode === "append") setPromptInput((prev) => prev + messageContent);
     else if (writeMode === "prepend")
       setPromptInput((prev) => messageContent + " " + prev);
     else {
       setPromptInput(messageContent ?? "");
-      if (!messageContent) setDocFilters({ include: [], exclude: [] });
+      if (clearDocs) setDocFilters({ include: [], exclude: [] });
+      if (restoreDocs) setDocFilters(restoreDocs);
     }
   }
 
@@ -406,8 +407,8 @@ export default function PromptInput({
               }}
             />
             <div className="bg-zinc-800 light:bg-white light:border light:border-slate-300 rounded-[20px] pwa:rounded-3xl flex flex-col px-5 overflow-hidden">
-              <input type="hidden" id="doc-filters-include" value={docFilters.include.join(',')} />
-              <input type="hidden" id="doc-filters-exclude" value={docFilters.exclude.join(',')} />
+              <input type="hidden" id="doc-filters-include" value={docFilters.include.join('|||')} />
+              <input type="hidden" id="doc-filters-exclude" value={docFilters.exclude.join('|||')} />
               <DocFilterManager docFilters={docFilters} setDocFilters={setDocFilters} />
               <AttachmentManager attachments={attachments} />
               <div className="flex items-center">

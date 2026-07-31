@@ -87,10 +87,10 @@ export default function ChatContainer({
    * @param {string} messageContent - The message content to set
    * @param {'replace' | 'append'} writeMode - Replace current text or append to existing text (default: replace)
    */
-  function setMessageEmit(messageContent = "", writeMode = "replace") {
+  function setMessageEmit(messageContent = "", writeMode = "replace", clearDocs = false) {
     window.dispatchEvent(
       new CustomEvent(PROMPT_INPUT_EVENT, {
-        detail: { messageContent, writeMode },
+        detail: { messageContent, writeMode, clearDocs },
       })
     );
   }
@@ -115,6 +115,8 @@ export default function ChatContainer({
           JSON.stringify({
             message: currentMessage,
             attachments: parseAttachments(),
+            includeDocuments: document.getElementById("doc-filters-include")?.value?.split('|||').filter(Boolean) || [],
+            excludeDocuments: document.getElementById("doc-filters-exclude")?.value?.split('|||').filter(Boolean) || [],
           })
         );
         navigate(paths.workspace.thread(workspace.slug, thread.slug));
@@ -128,8 +130,8 @@ export default function ChatContainer({
         content: currentMessage,
         role: "user",
         attachments: parseAttachments(),
-        includeDocuments: document.getElementById("doc-filters-include")?.value?.split(',').filter(Boolean) || [],
-        excludeDocuments: document.getElementById("doc-filters-exclude")?.value?.split(',').filter(Boolean) || [],
+        includeDocuments: document.getElementById("doc-filters-include")?.value?.split('|||').filter(Boolean) || [],
+        excludeDocuments: document.getElementById("doc-filters-exclude")?.value?.split('|||').filter(Boolean) || [],
       },
       {
         content: "",
@@ -137,6 +139,8 @@ export default function ChatContainer({
         pending: true,
         userMessage: currentMessage,
         animate: true,
+        includeDocuments: document.getElementById("doc-filters-include")?.value?.split('|||').filter(Boolean) || [],
+        excludeDocuments: document.getElementById("doc-filters-exclude")?.value?.split('|||').filter(Boolean) || [],
       },
     ];
 
@@ -144,7 +148,7 @@ export default function ChatContainer({
       endSTTSession();
     }
     setChatHistory(prevChatHistory);
-    setMessageEmit("");
+    setMessageEmit("", "replace", currentMessage.trim() === "/reset");
     setLoadingResponse(true);
   };
 
@@ -171,6 +175,8 @@ export default function ChatContainer({
     history = [],
     attachments = [],
     writeMode = "replace",
+    pendingInclude,
+    pendingExclude,
   } = {}) => {
     // If we are not auto-submitting, we can just emit the text to the prompt input.
     if (!autoSubmit) {
@@ -201,7 +207,12 @@ export default function ChatContainer({
       if (thread) {
         sessionStorage.setItem(
           PENDING_HOME_MESSAGE,
-          JSON.stringify({ message: text, attachments })
+          JSON.stringify({ 
+            message: text, 
+            attachments,
+            includeDocuments: document.getElementById("doc-filters-include")?.value?.split('|||').filter(Boolean) || [],
+            excludeDocuments: document.getElementById("doc-filters-exclude")?.value?.split('|||').filter(Boolean) || [],
+          })
         );
         navigate(paths.workspace.thread(workspace.slug, thread.slug));
         return;
@@ -216,8 +227,8 @@ export default function ChatContainer({
     // If we are auto-submitting
     // Then we can replace the current text since this is not accumulating.
     let prevChatHistory;
-    const includeDocuments = document.getElementById("doc-filters-include")?.value?.split(',').filter(Boolean) || [];
-    const excludeDocuments = document.getElementById("doc-filters-exclude")?.value?.split(',').filter(Boolean) || [];
+    const includeDocuments = pendingInclude || document.getElementById("doc-filters-include")?.value?.split('|||').filter(Boolean) || [];
+    const excludeDocuments = pendingExclude || document.getElementById("doc-filters-exclude")?.value?.split('|||').filter(Boolean) || [];
 
     if (history.length > 0) {
       // use pre-determined history chain.
@@ -258,7 +269,7 @@ export default function ChatContainer({
     }
 
     setChatHistory(prevChatHistory);
-    setMessageEmit("");
+    setMessageEmit("", "replace", text.trim() === "/reset");
     setLoadingResponse(true);
   };
 
@@ -279,6 +290,8 @@ export default function ChatContainer({
             autoSubmit: true,
             history: filteredHistory,
             attachments: lastUserMessage?.attachments,
+            pendingInclude: lastUserMessage?.includeDocuments,
+            pendingExclude: lastUserMessage?.excludeDocuments,
           })
         )
         .catch((e) => console.error(e));
@@ -296,9 +309,24 @@ export default function ChatContainer({
         sessionStorage.removeItem(PENDING_HOME_MESSAGE);
         sendCommand({
           text: pending.message,
-          attachments: pending.attachments || [],
           autoSubmit: true,
+          attachments: pending.attachments || [],
+          pendingInclude: pending.includeDocuments,
+          pendingExclude: pending.excludeDocuments,
         });
+
+        window.dispatchEvent(
+          new CustomEvent(PROMPT_INPUT_EVENT, {
+            detail: {
+              messageContent: "",
+              writeMode: "replace",
+              restoreDocs: {
+                include: pending.includeDocuments || [],
+                exclude: pending.excludeDocuments || [],
+              },
+            },
+          })
+        );
       }, 100);
     }
   }, [workspace?.slug]);
@@ -340,11 +368,7 @@ export default function ChatContainer({
       const excludeDocuments = promptMessage?.excludeDocuments || [];
       window.dispatchEvent(new CustomEvent(CLEAR_ATTACHMENTS_EVENT));
 
-      // Reset doc filters after sending message
-      const incInput = document.getElementById("doc-filters-include");
-      const excInput = document.getElementById("doc-filters-exclude");
-      if (incInput) incInput.value = "";
-      if (excInput) excInput.value = "";
+      // Sticky tags: do not wipe hidden doc filters on send so they persist for follow-ups
 
       await Workspace.multiplexStream({
         workspaceSlug: workspace.slug,

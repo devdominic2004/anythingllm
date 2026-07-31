@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
+const { safeJsonParse } = require("../http");
 const { DocumentManager } = require("../DocumentManager");
 const { WorkspaceChats } = require("../../models/workspaceChats");
 const { WorkspaceParsedFiles } = require("../../models/workspaceParsedFiles");
@@ -27,7 +28,7 @@ async function streamChatWithWorkspace(
   excludeDocuments = []
 ) {
   const uuid = uuidv4();
-  const updatedMessage = await grepCommand(message, user);
+  let updatedMessage = await grepCommand(message, user);
 
   if (Object.keys(VALID_COMMANDS).includes(updatedMessage)) {
     const data = await VALID_COMMANDS[updatedMessage](
@@ -114,6 +115,8 @@ async function streamChatWithWorkspace(
         sources: [],
         type: chatMode,
         attachments,
+        includeDocuments,
+        excludeDocuments,
       },
       threadId: thread?.id || null,
       include: false,
@@ -140,6 +143,9 @@ async function streamChatWithWorkspace(
   } = prefetchedContext ??
   (await recentChatHistory({ user, workspace, thread, messageLimit }));
 
+  // Backend tag carry-forward has been removed. The frontend is now the source of truth
+  // for sticky tags, and will explicitly pass includeDocuments on each turn until cleared by the user.
+
   // Pinned docs — reuse pre-fetched if available, otherwise fetch with token cap.
   const docManager = new DocumentManager({
     workspace,
@@ -164,6 +170,38 @@ async function streamChatWithWorkspace(
       ...metadata,
     });
   });
+
+  // HYBRID SUMMARY FIX: If the user explicitly asked to "summarize" and has tagged documents,
+  // we inject the documents directly into the context window to bypass the chunking limitation.
+  const isSummarizeRequest =
+    /summarize|summary|summarise|tl;dr|overview/i.test(message) ||
+    includedDocs.length > 1;
+
+  if (isSummarizeRequest && includedDocs.length > 0) {
+    // Cap each doc's content to ensure all docs survive compression.
+    // We use a safe estimate: ~70% of the window limit for context, split among docs.
+    const maxContextTokens = Math.floor(LLMConnector.promptWindowLimit() * 0.7);
+    const tokensPerDoc = Math.floor(maxContextTokens / includedDocs.length);
+    const charsPerDoc = tokensPerDoc * 4; // approximate chars
+
+    let docString = "\n\n--- TAGGED DOCUMENTS ---\n";
+    includedDocs.forEach((doc) => {
+      const { pageContent, ...metadata } = doc;
+      const cappedContent = pageContent.length > charsPerDoc 
+        ? pageContent.slice(0, charsPerDoc) + "\n...[Content Truncated]..." 
+        : pageContent;
+
+      docString += `\nDocument: ${metadata.title || "Unknown"}\n${cappedContent}\n`;
+      
+      sources.push({
+        text:
+          pageContent.slice(0, 1_000) + "...continued on in source document...",
+        ...metadata,
+      });
+    });
+    docString += "\n------------------------\n";
+    updatedMessage += docString;
+  }
 
   // Parsed files — reuse pre-fetched if available, otherwise fetch fresh.
   const parsedFiles =
@@ -261,7 +299,7 @@ async function streamChatWithWorkspace(
 
   // If in query mode and no context chunks are found from search, backfill, or pins -  do not
   // let the LLM try to hallucinate a response or use general knowledge and exit early
-  if (chatMode === "query" && contextTexts.length === 0) {
+  if ((chatMode === "query" || includeDocuments.length > 0) && contextTexts.length === 0) {
     const textResponse =
       workspace?.queryRefusalResponse ??
       "There is no relevant information in this workspace to answer your query.";
@@ -282,6 +320,8 @@ async function streamChatWithWorkspace(
         sources: [],
         type: chatMode,
         attachments,
+        includeDocuments,
+        excludeDocuments,
       },
       threadId: thread?.id || null,
       include: false,
@@ -293,12 +333,17 @@ async function streamChatWithWorkspace(
   // Compress & Assemble message to ensure prompt passes token limit with room for response
   // and build system messages based on inputs and history.
   // Reuse the system prompt from routing pre-fetch when available.
-  const systemPrompt =
+  let systemPrompt =
     prefetchedContext?.systemPrompt ??
     (await chatPrompt(workspace, user, {
       prompt: updatedMessage,
       rawHistory,
     }));
+
+  if (isSummarizeRequest && includedDocs.length > 0) {
+    systemPrompt +=
+      "\n\nImportant Instruction: Cover every tagged document separately in your response. Never echo [CONTEXT] markers back to the user.";
+  }
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt,
@@ -355,6 +400,8 @@ async function streamChatWithWorkspace(
         type: chatMode,
         attachments,
         metrics,
+        includeDocuments,
+        excludeDocuments,
       },
       threadId: thread?.id || null,
       user,

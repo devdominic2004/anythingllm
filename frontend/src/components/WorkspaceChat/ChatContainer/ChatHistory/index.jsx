@@ -134,13 +134,16 @@ export default forwardRef(function (
           0,
           currentHistory.findIndex((msg) => msg.chatId === chatId) + 1
         );
-        updatedHistory[updatedHistory.length - 1].content = editedMessage;
+        const lastMessage = updatedHistory[updatedHistory.length - 1];
+        lastMessage.content = editedMessage;
         await Workspace.deleteEditedChats(workspace.slug, threadSlug, chatId);
         sendCommandRef.current({
           text: editedMessage,
           autoSubmit: true,
           history: updatedHistory,
           attachments,
+          pendingInclude: lastMessage.includeDocuments,
+          pendingExclude: lastMessage.excludeDocuments,
         });
         return;
       }
@@ -378,6 +381,8 @@ function buildMessages({
           chatId={props.chatId}
           error={props.error}
           attachments={props.attachments}
+          includeDocuments={props.includeDocuments}
+          excludeDocuments={props.excludeDocuments}
           regenerateMessage={regenerateAssistantMessage}
           isLastMessage={isLastBotReply}
           saveEditedMessage={saveEditedMessage}

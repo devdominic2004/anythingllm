@@ -94,11 +94,12 @@ async function chatPrompt(workspace, user = null, opts = {}) {
   const { promptWithMemories } = require("../memories");
   const basePrompt =
     workspace?.openAiPrompt ?? SystemSettings.saneDefaultSystemPrompt;
-  const systemPrompt = await SystemPromptVariables.expandSystemPromptVariables(
+  let systemPrompt = await SystemPromptVariables.expandSystemPromptVariables(
     basePrompt,
     user?.id,
     workspace?.id
   );
+
   return promptWithMemories({
     systemPrompt,
     userId: user?.id ?? null,

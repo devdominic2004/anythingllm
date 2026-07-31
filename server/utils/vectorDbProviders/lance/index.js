@@ -122,10 +122,11 @@ class LanceDb extends VectorDatabase {
      * Benchmarks:
      * On Intel Mac: 2.6 GHz 6-Core Intel Core i7 - 20 docs reranked in ~5.2 sec
      */
-    const searchLimit = Math.max(
+    const baseSearchLimit = Math.max(
       10,
       Math.min(50, Math.ceil(totalEmbeddings * 0.1))
     );
+    const searchLimit = (includeIdentifiers && includeIdentifiers.length > 0) ? Math.max(100, baseSearchLimit) : baseSearchLimit;
     const vectorSearchResults = await collection
       .vectorSearch(queryVector)
       .distanceType("cosine")
@@ -196,21 +197,27 @@ class LanceDb extends VectorDatabase {
       scores: [],
     };
 
+    const limit = (includeIdentifiers && includeIdentifiers.length > 0) ? Math.max(100, topN) : topN;
     const response = await collection
       .vectorSearch(queryVector)
       .distanceType("cosine")
-      .limit(topN)
+      .limit(limit)
       .toArray();
 
     response.forEach((item) => {
-      if (this.distanceToSimilarity(item._distance) < similarityThreshold)
-        return;
       const { vector: _, ...rest } = item;
-      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
-      if (includeIdentifiers && includeIdentifiers.length > 0 && !includeIdentifiers.includes(sourceIdentifier(rest))) {
+      const sourceId = sourceIdentifier(rest);
+      const isIncluded = includeIdentifiers && includeIdentifiers.length > 0 && includeIdentifiers.includes(sourceId);
+
+      if (!isIncluded && this.distanceToSimilarity(item._distance) < similarityThreshold) {
         return;
       }
-      if (allExcluded.includes(sourceIdentifier(rest))) {
+      
+      const allExcluded = [...filterIdentifiers, ...(excludeIdentifiers || [])];
+      if (includeIdentifiers && includeIdentifiers.length > 0 && !isIncluded) {
+        return;
+      }
+      if (allExcluded.includes(sourceId)) {
         this.logger(
           "A source was filtered from context as it's parent document is pinned."
         );

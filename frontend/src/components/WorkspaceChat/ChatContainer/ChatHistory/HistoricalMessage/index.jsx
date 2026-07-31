@@ -29,6 +29,8 @@ const HistoricalMessage = ({
   workspace,
   sources = [],
   attachments = [],
+  includeDocuments = [],
+  excludeDocuments = [],
   error = false,
   feedbackScore = null,
   chatId = null,
@@ -109,6 +111,7 @@ const HistoricalMessage = ({
                 message={message}
                 messageId={uuid}
               />
+              <DocFilterChips includeDocuments={includeDocuments} excludeDocuments={excludeDocuments} />
               <ChatAttachments attachments={attachments} />
             </TruncatableContent>
           </div>
@@ -354,3 +357,50 @@ const RenderChatContent = memo(
     );
   }
 );
+
+function DocFilterChips({ includeDocuments, excludeDocuments }) {
+  if (
+    (!includeDocuments || includeDocuments.length === 0) &&
+    (!excludeDocuments || excludeDocuments.length === 0)
+  ) {
+    return null;
+  }
+
+  const getDisplayName = (docpath) => {
+    if (docpath.endsWith("/")) {
+      return docpath.slice(0, -1).split("/").pop() + " (Folder)";
+    }
+    return docpath.split("/").pop();
+  };
+
+  return (
+    <div className="flex flex-nowrap gap-2 mt-3 overflow-x-auto no-scroll shrink-0">
+      {includeDocuments?.map((docpath) => (
+        <div
+          key={`inc-${docpath}`}
+          className="flex items-center shrink-0 gap-x-1 rounded-full bg-green-500/10 border border-green-500/20 px-3 py-1"
+        >
+          <span
+            className="text-green-500 text-xs font-semibold truncate max-w-[200px]"
+            title={docpath}
+          >
+            + {getDisplayName(docpath)}
+          </span>
+        </div>
+      ))}
+      {excludeDocuments?.map((docpath) => (
+        <div
+          key={`exc-${docpath}`}
+          className="flex items-center shrink-0 gap-x-1 rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1"
+        >
+          <span
+            className="text-red-500 text-xs font-semibold truncate max-w-[200px]"
+            title={docpath}
+          >
+            - {getDisplayName(docpath)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

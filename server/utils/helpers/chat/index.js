@@ -422,7 +422,6 @@ function fillSourceWindow({
     const validSources = chatSources.filter((source) => {
       return (
         filterIdentifiers.includes(sourceIdentifier(source)) == false && // source cannot be in current pins
-        source.hasOwnProperty("score") && // source cannot have come from a pinned document that was previously pinned
         source.hasOwnProperty("text") && // source has a valid text property we can use
         seenChunks.has(source.id) == false // is unique
       );
