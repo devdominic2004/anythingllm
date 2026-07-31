@@ -112,12 +112,10 @@ export default function DocMenu({
 
   const handleFileSelect = (file) => {
     onSelect(file.docpath);
-    setShowing(false);
   };
 
   const handleSelectAll = () => {
     onSelect(selectedFolder + "/");
-    setShowing(false);
   };
 
   return (
@@ -129,14 +127,14 @@ export default function DocMenu({
       />
       <div
       ref={menuRef}
-      className={`absolute z-50 bg-zinc-900 border border-slate-700/50 rounded-lg shadow-xl w-72 max-h-64 overflow-hidden flex flex-col bottom-full mb-2`}
+      className={`absolute z-50 bg-zinc-900 light:bg-slate-100 border border-slate-700/50 light:border-slate-300 rounded-lg shadow-xl w-72 max-h-64 overflow-hidden flex flex-col bottom-full mb-2`}
       style={{ left: `${position.left}px` }}
     >
-        <div className="p-2 border-b border-zinc-700 relative flex items-center">
-        <MagnifyingGlass className="absolute left-4 text-gray-400" size={16} />
+        <div className="p-2 border-b border-zinc-700 light:border-slate-300 relative flex items-center">
+        <MagnifyingGlass className="absolute left-4 text-gray-400 light:text-slate-500" size={16} />
         <input
           autoFocus
-          className="w-full pl-8 pr-2 py-1 bg-transparent text-sm text-gray-200 placeholder:text-zinc-500 focus:outline-none"
+          className="w-full pl-8 pr-2 py-1 bg-transparent text-sm text-gray-200 light:text-slate-800 placeholder:text-zinc-500 light:placeholder:text-slate-400 focus:outline-none"
           placeholder={selectedFolder ? `Search in ${selectedFolder}...` : "Search folders..."}
           value={searchQuery}
           onChange={(e) => {
@@ -158,8 +156,8 @@ export default function DocMenu({
               key={folder}
               className={`flex items-center gap-2 px-3 py-2 cursor-pointer text-sm ${
                 highlightedIndex === idx
-                  ? "bg-zinc-800 text-white"
-                  : "text-gray-300 hover:bg-zinc-800/50"
+                  ? "bg-zinc-800 light:bg-slate-200 text-white light:text-slate-800"
+                  : "text-gray-300 light:text-slate-600 hover:bg-zinc-800/50 light:hover:bg-slate-200/50"
               }`}
               onClick={() => {
                 setSelectedFolder(folder);
@@ -178,7 +176,7 @@ export default function DocMenu({
         ) : (
           <>
             <div
-              className="flex items-center gap-2 px-3 py-2 cursor-pointer text-sm text-blue-400 hover:bg-zinc-800/50 border-b border-zinc-700"
+              className="flex items-center gap-2 px-3 py-2 cursor-pointer text-sm text-blue-400 light:text-blue-600 hover:bg-zinc-800/50 light:hover:bg-slate-200/50 border-b border-zinc-700 light:border-slate-300"
               onClick={handleSelectAll}
             >
               <CheckSquareOffset size={16} />
@@ -189,8 +187,8 @@ export default function DocMenu({
                 key={file.docpath}
                 className={`flex items-center gap-2 px-3 py-2 cursor-pointer text-sm ${
                   highlightedIndex === idx
-                    ? "bg-zinc-800 text-white"
-                    : "text-gray-300 hover:bg-zinc-800/50"
+                    ? "bg-zinc-800 light:bg-slate-200 text-white light:text-slate-800"
+                    : "text-gray-300 light:text-slate-600 hover:bg-zinc-800/50 light:hover:bg-slate-200/50"
                 }`}
                 onClick={() => handleFileSelect(file)}
                 onMouseEnter={() => setHighlightedIndex(idx)}

@@ -376,14 +376,12 @@ export default function PromptInput({
                 const textarea = textareaRef.current;
                 const start = textarea.selectionStart;
                 
-                // Find the start of the prefix
                 let targetStart = start;
-                let isExclude = false;
-                if (promptInput.slice(0, start).endsWith("-@doc")) {
-                  targetStart = start - 5;
-                  isExclude = true;
-                } else if (promptInput.slice(0, start).endsWith("@doc")) {
-                  targetStart = start - 4;
+                const isExclude = docMenuPrefix === "-@doc";
+                
+                // Delete the trigger text entirely, but only if it's still there (first click)
+                if (promptInput.slice(0, start).endsWith(docMenuPrefix)) {
+                  targetStart = start - docMenuPrefix.length;
                 }
 
                 // Delete the trigger text entirely!
@@ -399,7 +397,6 @@ export default function PromptInput({
                   return prev;
                 });
 
-                setShowDocMenu(false);
                 setTimeout(() => {
                   textarea.focus();
                   textarea.selectionStart = textarea.selectionEnd = targetStart;
