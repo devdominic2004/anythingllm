@@ -19,6 +19,7 @@ import ToolsMenu, { TOOLS_MENU_KEYBOARD_EVENT } from "./ToolsMenu";
 import DocMenu from "./DocMenu";
 import { useSearchParams } from "react-router-dom";
 import { useIsAgentSessionActive } from "@/utils/chat/agent";
+import { PENDING_HOME_MESSAGE } from "@/utils/constants";
 
 export const PROMPT_INPUT_ID = "primary-prompt-input";
 export const PROMPT_INPUT_EVENT = "set_prompt_input";
@@ -52,7 +53,18 @@ export default function PromptInput({
   const [showTools, setShowTools] = useState(false);
   const [showDocMenu, setShowDocMenu] = useState(false);
   const [docMenuPrefix, setDocMenuPrefix] = useState("");
-  const [docFilters, setDocFilters] = useState({ include: [], exclude: [] });
+  const [docFilters, setDocFilters] = useState(() => {
+    try {
+      const pending = JSON.parse(window.sessionStorage.getItem(PENDING_HOME_MESSAGE));
+      if (pending && (pending.includeDocuments?.length > 0 || pending.excludeDocuments?.length > 0)) {
+        return { 
+          include: pending.includeDocuments || [], 
+          exclude: pending.excludeDocuments || [] 
+        };
+      }
+    } catch (e) {}
+    return { include: [], exclude: [] };
+  });
   const autoOpenedToolsRef = useRef(false);
   const toolsHighlightRef = useRef(-1);
   const formRef = useRef(null);

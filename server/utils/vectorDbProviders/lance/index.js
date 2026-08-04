@@ -197,7 +197,7 @@ class LanceDb extends VectorDatabase {
       scores: [],
     };
 
-    const limit = (includeIdentifiers && includeIdentifiers.length > 0) ? Math.max(100, topN) : topN;
+    const limit = (includeIdentifiers && includeIdentifiers.length > 0) ? Math.max(10000, topN) : topN;
     const response = await collection
       .vectorSearch(queryVector)
       .distanceType("cosine")

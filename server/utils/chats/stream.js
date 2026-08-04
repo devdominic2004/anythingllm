@@ -171,37 +171,7 @@ async function streamChatWithWorkspace(
     });
   });
 
-  // HYBRID SUMMARY FIX: If the user explicitly asked to "summarize" and has tagged documents,
-  // we inject the documents directly into the context window to bypass the chunking limitation.
-  const isSummarizeRequest =
-    /summarize|summary|summarise|tl;dr|overview/i.test(message) ||
-    includedDocs.length > 1;
 
-  if (isSummarizeRequest && includedDocs.length > 0) {
-    // Cap each doc's content to ensure all docs survive compression.
-    // We use a safe estimate: ~70% of the window limit for context, split among docs.
-    const maxContextTokens = Math.floor(LLMConnector.promptWindowLimit() * 0.7);
-    const tokensPerDoc = Math.floor(maxContextTokens / includedDocs.length);
-    const charsPerDoc = tokensPerDoc * 4; // approximate chars
-
-    let docString = "\n\n--- TAGGED DOCUMENTS ---\n";
-    includedDocs.forEach((doc) => {
-      const { pageContent, ...metadata } = doc;
-      const cappedContent = pageContent.length > charsPerDoc 
-        ? pageContent.slice(0, charsPerDoc) + "\n...[Content Truncated]..." 
-        : pageContent;
-
-      docString += `\nDocument: ${metadata.title || "Unknown"}\n${cappedContent}\n`;
-      
-      sources.push({
-        text:
-          pageContent.slice(0, 1_000) + "...continued on in source document...",
-        ...metadata,
-      });
-    });
-    docString += "\n------------------------\n";
-    updatedMessage += docString;
-  }
 
   // Parsed files — reuse pre-fetched if available, otherwise fetch fresh.
   const parsedFiles =
@@ -340,10 +310,7 @@ async function streamChatWithWorkspace(
       rawHistory,
     }));
 
-  if (isSummarizeRequest && includedDocs.length > 0) {
-    systemPrompt +=
-      "\n\nImportant Instruction: Cover every tagged document separately in your response. Never echo [CONTEXT] markers back to the user.";
-  }
+
   const messages = await LLMConnector.compressMessages(
     {
       systemPrompt,

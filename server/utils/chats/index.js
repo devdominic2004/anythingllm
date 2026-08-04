@@ -115,7 +115,11 @@ async function chatPrompt(workspace, user = null, opts = {}) {
 // points both in the full-text and possibly from RAG - result in bad results
 // even if the LLM was not even going to hallucinate.
 function sourceIdentifier(sourceDocument) {
-  if (!sourceDocument?.title || !sourceDocument?.published) return uuidv4();
+  if (!sourceDocument?.title || !sourceDocument?.published) {
+    if (sourceDocument?.url) return `url:${sourceDocument.url}`;
+    if (sourceDocument?.chunkSource) return `chunkSource:${sourceDocument.chunkSource}`;
+    return uuidv4();
+  }
   return `title:${sourceDocument.title}-timestamp:${sourceDocument.published}`;
 }
 
