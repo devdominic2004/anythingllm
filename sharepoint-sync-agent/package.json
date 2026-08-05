@@ -1,0 +1,21 @@
+{
+  "name": "sharepoint-sync-agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "mock-server": "node mock-server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@azure/msal-node": "^5.4.3",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "axios": "^1.19.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "isomorphic-fetch": "^3.0.0"
+  }
+}

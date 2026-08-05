@@ -1,0 +1,8 @@
+{
+  "mappings": [
+    {
+      "sharepointFolderId": "FOLDER_ID_1",
+      "workspaceSlug": "my-workspace"
+    }
+  ]
+}

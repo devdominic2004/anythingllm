@@ -346,6 +346,8 @@ export default function PromptInput({
     } else if (textBeforeCursor.endsWith("-@doc")) {
       setDocMenuPrefix("-@doc");
       setShowDocMenu(true);
+    } else if (showDocMenu) {
+      setShowDocMenu(false);
     }
   }
 
