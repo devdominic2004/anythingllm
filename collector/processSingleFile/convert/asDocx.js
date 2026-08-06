@@ -1,5 +1,6 @@
 const { v4 } = require("uuid");
-const { DocxLoader } = require("langchain/document_loaders/fs/docx");
+const mammoth = require("mammoth");
+const TurndownService = require("turndown");
 const {
   createdDate,
   trashFile,
@@ -72,15 +73,31 @@ async function asDocX({
   options = {},
   metadata = {},
 }) {
-  const loader = new DocxLoader(fullFilePath);
-
   console.log(`-- Working ${filename} --`);
   let pageContent = [];
-  const docs = await loader.load();
-  for (const doc of docs) {
-    console.log(`-- Parsing content from docx page --`);
-    if (!doc.pageContent.length) continue;
-    pageContent.push(doc.pageContent);
+  
+  try {
+    const turndownService = new TurndownService();
+    turndownService.remove('img'); // actively remove all image tags to prevent Base64 bloat
+
+    // Strip images using mammoth
+    const mammothOptions = {
+      convertImage: mammoth.images.inline(function(element) {
+          return Promise.resolve({src: ""});
+      })
+    };
+    
+    console.log(`-- Parsing content from docx via Mammoth & Turndown --`);
+    const result = await mammoth.convertToHtml({path: fullFilePath}, mammothOptions);
+    const html = result.value;
+    
+    const markdown = turndownService.turndown(html);
+    
+    if (markdown.trim().length > 0) {
+      pageContent.push(markdown);
+    }
+  } catch (err) {
+    console.error(`Failed to parse DOCX using mammoth:`, err);
   }
 
   const visionImagesBase64 = options.documentVision

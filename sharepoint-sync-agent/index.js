@@ -3,6 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const graphClient = require('./graph-client');
 const anythingLLMClient = require('./anythingllm-client');
+const mammoth = require('mammoth');
+const TurndownService = require('turndown');
+
+const turndownService = new TurndownService();
+turndownService.remove('img'); // Actively remove all image tags to prevent Base64 bloat
 
 const STATE_FILE = path.join(__dirname, 'sync-state.json');
 const CONFIG_FILE = path.join(__dirname, 'config.json');
@@ -53,11 +58,40 @@ async function processFolder(folderId, workspaceSlug, state) {
 
     if (lastModified > lastSynced) {
       console.log(`[SYNC] Downloading updated file: ${file.name}`);
+      let localPath;
+      let mdPath;
       try {
-        const localPath = await graphClient.downloadFile(file, TEMP_DIR);
+        localPath = await graphClient.downloadFile(file, TEMP_DIR);
         
-        console.log(`[SYNC] Uploading ${file.name} to AnythingLLM workspace: ${workspaceSlug}`);
-        const uploadResult = await anythingLLMClient.uploadDocument(localPath, workspaceSlug);
+        let fileToUpload = localPath;
+        const originalFileName = file.name;
+
+        // Intercept DOCX files
+        if (originalFileName.toLowerCase().endsWith('.docx')) {
+            console.log(`[SYNC] Converting ${originalFileName} to pure Markdown (stripping images)...`);
+            
+            // Mammoth convert to HTML (avoiding base64 bloat by returning empty image src)
+            const options = {
+                convertImage: mammoth.images.inline(function(element) {
+                    return Promise.resolve({src: ""});
+                })
+            };
+            
+            const result = await mammoth.convertToHtml({path: localPath}, options);
+            const html = result.value;
+            
+            // Turndown convert to Markdown
+            const markdown = turndownService.turndown(html);
+            
+            // Save as .md
+            mdPath = localPath.replace(/\.docx$/i, '.md');
+            fs.writeFileSync(mdPath, markdown);
+            
+            fileToUpload = mdPath;
+        }
+
+        console.log(`[SYNC] Uploading ${path.basename(fileToUpload)} to AnythingLLM workspace: ${workspaceSlug}`);
+        const uploadResult = await anythingLLMClient.uploadDocument(fileToUpload, workspaceSlug);
         console.log(`[UPLOAD RESULT]`, uploadResult);
 
         // Update state
@@ -67,9 +101,12 @@ async function processFolder(folderId, workspaceSlug, state) {
       } catch (err) {
         console.error(`[ERROR] Failed to sync ${file.name}`, err);
       } finally {
-        // Always clean up temp file even if upload fails
-        if (fs.existsSync(localPath)) {
+        // Always clean up temp files even if upload fails
+        if (localPath && fs.existsSync(localPath)) {
           fs.unlinkSync(localPath);
+        }
+        if (mdPath && fs.existsSync(mdPath)) {
+          fs.unlinkSync(mdPath);
         }
       }
     }
