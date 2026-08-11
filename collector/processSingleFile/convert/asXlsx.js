@@ -26,6 +26,32 @@ function convertToCSV(data) {
     .join("\n");
 }
 
+function convertToKeyValue(data) {
+  if (!data || data.length === 0) return "";
+  
+  const headers = data[0].map((header, index) => {
+    if (header === null || header === undefined || header === "") {
+      return `Column ${index + 1}`;
+    }
+    return String(header).trim();
+  });
+
+  const rows = data.slice(1);
+  const formattedRows = rows.map((row, rowIndex) => {
+    let rowText = `--- Row ${rowIndex + 2} ---\n`;
+    row.forEach((cell, cellIndex) => {
+      const header = headers[cellIndex] || `Column ${cellIndex + 1}`;
+      const value = (cell === null || cell === undefined) ? "" : String(cell).trim();
+      if (value !== "") {
+        rowText += `${header}: ${value}\n`;
+      }
+    });
+    return rowText;
+  });
+
+  return formattedRows.join("\n");
+}
+
 async function asXlsx({
   fullFilePath = "",
   filename = "",
@@ -39,6 +65,7 @@ async function asXlsx({
 
     if (options.parseOnly) {
       const allSheetContents = [];
+      const allSheetCsvContents = [];
       let totalWordCount = 0;
       const sheetNames = [];
 
@@ -46,9 +73,10 @@ async function asXlsx({
         const processed = processSheet(sheet);
         if (!processed) continue;
 
-        const { name, content, wordCount } = processed;
+        const { name, content, csvContent, wordCount } = processed;
         sheetNames.push(name);
         allSheetContents.push(`\nSheet: ${name}\n${content}`);
+        allSheetCsvContents.push(`\nSheet: ${name}\n${csvContent}`);
         totalWordCount += wordCount;
       }
 
@@ -62,6 +90,7 @@ async function asXlsx({
       }
 
       const combinedContent = allSheetContents.join("\n");
+      const combinedCsvContent = allSheetCsvContents.join("\n");
       const sheetListText =
         sheetNames.length > 1
           ? ` (Sheets: ${sheetNames.join(", ")})`
@@ -82,6 +111,7 @@ async function asXlsx({
         published: createdDate(fullFilePath),
         wordCount: totalWordCount,
         pageContent: combinedContent,
+        preProcessedContent: combinedCsvContent,
         token_count_estimate: tokenizeString(combinedContent),
       };
 
@@ -109,10 +139,10 @@ async function asXlsx({
         const processed = processSheet(sheet);
         if (!processed) continue;
 
-        const { name, content, wordCount } = processed;
+        const { name, content, csvContent, wordCount } = processed;
         const sheetData = {
           id: v4(),
-          url: `file://${path.join(outFolderPath, `${slugify(name)}.csv`)}`,
+          url: `file://${path.join(outFolderPath, `${slugify(name)}.txt`)}`,
           title: metadata.title || `${filename} - Sheet:${name}`,
           docAuthor: metadata.docAuthor || "Unknown",
           description:
@@ -122,6 +152,7 @@ async function asXlsx({
           published: createdDate(fullFilePath),
           wordCount: wordCount,
           pageContent: content,
+          preProcessedContent: csvContent,
           token_count_estimate: tokenizeString(content),
         };
 
@@ -171,7 +202,8 @@ async function asXlsx({
 function processSheet(sheet) {
   try {
     const { name, data } = sheet;
-    const content = convertToCSV(data);
+    const content = convertToKeyValue(data);
+    const csvContent = convertToCSV(data);
 
     if (!content?.length) {
       console.log(`Sheet "${name}" is empty. Skipping.`);
@@ -182,6 +214,7 @@ function processSheet(sheet) {
     return {
       name,
       content,
+      csvContent,
       wordCount: content.split(/\s+/).length,
     };
   } catch (err) {

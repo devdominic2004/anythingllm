@@ -76,6 +76,7 @@ export default function FolderRow({
             <FileRow
               key={fileItem.id}
               item={fileItem}
+              folderName={item.name}
               selected={isSelected(fileItem.id)}
               toggleSelection={toggleSelection}
             />

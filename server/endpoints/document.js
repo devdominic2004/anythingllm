@@ -1,5 +1,5 @@
 const { Document } = require("../models/documents");
-const { normalizePath, documentsPath, isWithin } = require("../utils/files");
+const { normalizePath, documentsPath, isWithin, fileData } = require("../utils/files");
 const { reqBody } = require("../utils/http");
 const {
   flexUserRoleValid,
@@ -103,6 +103,33 @@ function documentEndpoints(app) {
         response
           .status(500)
           .json({ success: false, message: "Failed to move files." });
+      }
+    }
+  );
+
+  app.get(
+    "/document/:folderName/:filename/raw",
+    [validatedRequest, flexUserRoleValid([ROLES.admin, ROLES.manager, ROLES.workspace_builder])],
+    async (request, response) => {
+      try {
+        const { folderName, filename } = request.params;
+        const filePath = `${folderName}/${filename}`;
+        
+        const fileDataRaw = await fileData(filePath);
+        if (!fileDataRaw) {
+          response.status(404).json({ success: false, error: "File not found" });
+          return;
+        }
+
+        response.status(200).json({
+          success: true,
+          pageContent: fileDataRaw.pageContent,
+          preProcessedContent: fileDataRaw.preProcessedContent || "No pre-processed content available.",
+          rawXmlContent: fileDataRaw.rawXmlContent || "",
+        });
+      } catch (e) {
+        console.error(e);
+        response.status(500).json({ success: false, error: e.message });
       }
     }
   );

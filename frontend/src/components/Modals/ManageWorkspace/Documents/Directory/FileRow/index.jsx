@@ -6,7 +6,7 @@ import {
 } from "@/utils/directories";
 import { File } from "@phosphor-icons/react";
 
-export default function FileRow({ item, selected, toggleSelection }) {
+export default function FileRow({ item, folderName, selected, toggleSelection }) {
   return (
     <tr
       onClick={() => toggleSelection(item)}
@@ -41,7 +41,7 @@ export default function FileRow({ item, selected, toggleSelection }) {
           {middleTruncate(item.title, 55)}
         </p>
       </div>
-      <div className="col-span-2 flex justify-end items-center">
+      <div className="col-span-2 flex justify-end items-center gap-x-2">
         {item?.cached && (
           <div className="bg-theme-settings-input-active rounded-3xl">
             <p className="text-xs px-2 py-0.5">Cached</p>
@@ -51,3 +51,4 @@ export default function FileRow({ item, selected, toggleSelection }) {
     </tr>
   );
 }
+

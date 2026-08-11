@@ -1122,6 +1122,7 @@ function apiDocumentEndpoints(app) {
     }
   );
 
+
   app.get(
     "/v1/document/generated-files/:filename",
     [validApiKey],

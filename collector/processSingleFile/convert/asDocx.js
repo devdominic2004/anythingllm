@@ -75,30 +75,65 @@ async function asDocX({
 }) {
   console.log(`-- Working ${filename} --`);
   let pageContent = [];
+  let preProcessedContent = "";
+  let rawXmlContent = "";
   
-  try {
-    const turndownService = new TurndownService();
-    turndownService.remove('img'); // actively remove all image tags to prevent Base64 bloat
+  // --- MAMMOTH IMPLEMENTATION (Commented out for easy revert) ---
+  // try {
+  //   const turndownService = new TurndownService();
+  //   turndownService.remove('img'); // actively remove all image tags to prevent Base64 bloat
+  //
+  //   // Strip images using mammoth
+  //   const mammothOptions = {
+  //     convertImage: mammoth.images.inline(function(element) {
+  //         return Promise.resolve({src: ""});
+  //     })
+  //   };
+  //   
+  //   console.log(`-- Parsing content from docx via Mammoth & Turndown --`);
+  //   const result = await mammoth.convertToHtml({path: fullFilePath}, mammothOptions);
+  //   preProcessedContent = result.value;
+  //   
+  //   const markdown = turndownService.turndown(preProcessedContent);
+  //   
+  //   if (markdown.trim().length > 0) {
+  //     pageContent.push(markdown);
+  //   }
+  // } catch (err) {
+  //   console.error(`Failed to parse DOCX using mammoth:`, err);
+  // }
+  // --------------------------------------------------------------
 
-    // Strip images using mammoth
-    const mammothOptions = {
-      convertImage: mammoth.images.inline(function(element) {
-          return Promise.resolve({src: ""});
-      })
-    };
+  // --- PANDOC IMPLEMENTATION ---
+  try {
+    const { execSync } = require("child_process");
+    console.log(`-- Parsing content from docx via Pandoc --`);
+    try {
+      const AdmZip = require("adm-zip");
+      const zip = new AdmZip(fullFilePath);
+      const documentXml = zip.getEntry("word/document.xml");
+      if (documentXml) {
+        rawXmlContent = documentXml.getData().toString("utf8");
+      }
+    } catch (e) {
+      console.error(`Failed to extract word/document.xml:`, e);
+    }
+
+    // Pandoc command: convert docx to GitHub Flavored Markdown (gfm)
+    const markdownBuffer = execSync(`pandoc "${fullFilePath}" -f docx -t gfm`);
+    const markdown = markdownBuffer.toString("utf8");
     
-    console.log(`-- Parsing content from docx via Mammoth & Turndown --`);
-    const result = await mammoth.convertToHtml({path: fullFilePath}, mammothOptions);
-    const html = result.value;
-    
-    const markdown = turndownService.turndown(html);
+    // Generate intermediate HTML for the raw preview view
+    const htmlBuffer = execSync(`pandoc "${fullFilePath}" -f docx -t html`);
+    preProcessedContent = htmlBuffer.toString("utf8");
     
     if (markdown.trim().length > 0) {
       pageContent.push(markdown);
     }
   } catch (err) {
-    console.error(`Failed to parse DOCX using mammoth:`, err);
+    console.error(`Failed to parse DOCX using Pandoc:`, err);
   }
+  // -----------------------------
 
   const visionImagesBase64 = options.documentVision
     ? extractDocxVisionImages(fullFilePath)
@@ -124,6 +159,9 @@ async function asDocX({
   }
 
   const content = pageContent.join("");
+
+
+
   const data = {
     id: v4(),
     url: "file://" + fullFilePath,
@@ -135,6 +173,8 @@ async function asDocX({
     published: createdDate(fullFilePath),
     wordCount: content ? content.split(" ").length : 0,
     pageContent: content,
+    preProcessedContent: preProcessedContent,
+    rawXmlContent: rawXmlContent,
     token_count_estimate: content ? tokenizeString(content) : 0,
   };
 

@@ -33,6 +33,17 @@ const Document = {
         return { success: false, error: e.message };
       });
   },
+  getRawContent: async (folderName, filename) => {
+    return await fetch(`${API_BASE}/document/${folderName}/${filename}/raw`, {
+      method: "GET",
+      headers: baseHeaders(),
+    })
+      .then((res) => res.json())
+      .catch((e) => {
+        console.error(e);
+        return { success: false, error: e.message };
+      });
+  },
 };
 
 export default Document;

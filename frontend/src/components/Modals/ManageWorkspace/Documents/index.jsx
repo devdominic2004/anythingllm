@@ -5,6 +5,7 @@ import System from "../../../../models/system";
 import showToast from "../../../../utils/toast";
 import Directory from "./Directory";
 import WorkspaceDirectory from "./WorkspaceDirectory";
+import DocumentPreviewModal from "./DocumentPreviewModal";
 import { useWorkspaceEmbeddingProgress } from "@/EmbeddingProgressContext";
 
 export default function DocumentSettings({ workspace }) {
@@ -16,7 +17,16 @@ export default function DocumentSettings({ workspace }) {
   const [hasChanges, setHasChanges] = useState(false);
   const [movedItems, setMovedItems] = useState([]);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [previewItem, setPreviewItem] = useState(null);
   const availableDocsRef = useRef([]);
+
+  useEffect(() => {
+    const handlePreview = (e) => {
+      setPreviewItem({ ...e.detail.item, folderName: e.detail.folderName });
+    };
+    window.addEventListener("preview_document", handlePreview);
+    return () => window.removeEventListener("preview_document", handlePreview);
+  }, []);
 
   useEffect(() => {
     availableDocsRef.current = availableDocs;
@@ -255,6 +265,14 @@ export default function DocumentSettings({ workspace }) {
         saveChanges={updateWorkspace}
         movedItems={movedItems}
       />
+      {previewItem && (
+        <DocumentPreviewModal
+          isOpen={!!previewItem}
+          closeModal={() => setPreviewItem(null)}
+          item={previewItem}
+          folderName={previewItem?.folderName}
+        />
+      )}
     </div>
   );
 }

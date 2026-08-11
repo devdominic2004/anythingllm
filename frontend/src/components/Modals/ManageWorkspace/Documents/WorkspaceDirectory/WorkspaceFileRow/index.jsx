@@ -66,7 +66,7 @@ export default function WorkspaceFileRow({
       onClick={toggleRowSelection}
     >
       <div
-        className="col-span-10 w-fit flex gap-x-[2px] items-center relative"
+        className="col-span-9 w-fit flex gap-x-[2px] items-center relative"
         data-tooltip-id="ws-directory-item"
         data-tooltip-content={JSON.stringify({
           title: item.title,
@@ -93,11 +93,11 @@ export default function WorkspaceFileRow({
           className="shrink-0 text-base font-bold w-4 h-4 mr-[3px] ml-1"
           weight="fill"
         />
-        <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[400px]">
+        <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[350px]">
           {middleTruncate(item.title, 50)}
         </p>
       </div>
-      <div className="col-span-2 flex justify-end items-center">
+      <div className="col-span-3 flex justify-end items-center">
         {hasChanges ? (
           <div className="w-4 h-4 ml-2 flex-shrink-0" />
         ) : (
@@ -112,6 +112,10 @@ export default function WorkspaceFileRow({
               docPath={`${folderName}/${item.name}`}
               item={item}
             />
+            <PreviewItem
+              item={item}
+              folderName={folderName}
+            />
             <RemoveItemFromWorkspace item={item} onClick={onRemoveClick} />
           </div>
         )}
@@ -119,6 +123,30 @@ export default function WorkspaceFileRow({
     </div>
   );
 }
+
+const PreviewItem = ({ item, folderName }) => {
+  const previewEvent = new CustomEvent("preview_document", { detail: { item, folderName } });
+
+  const onPreviewClick = (e) => {
+    e.stopPropagation();
+    window.dispatchEvent(previewEvent);
+  };
+
+  return (
+    <div
+      onClick={onPreviewClick}
+      className="group flex gap-x-2 items-center hover:bg-theme-file-picker-hover p-[2px] rounded ml-2 cursor-pointer"
+      data-tooltip-id="preview-document"
+      data-tooltip-content="Preview Document Content"
+    >
+      <Eye
+        size={16}
+        weight="regular"
+        className="outline-none text-base font-bold flex-shrink-0"
+      />
+    </div>
+  );
+};
 
 const PinItemToWorkspace = memo(({ workspace, docPath, item }) => {
   const [pinned, setPinned] = useState(
