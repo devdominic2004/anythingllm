@@ -6,9 +6,12 @@ const DocumentVectors = {
     if (vectorRecords.length === 0) return;
 
     try {
-      const inserts = [];
-      vectorRecords.forEach((record) => {
-        inserts.push(
+      const { toChunks } = require("../utils/helpers");
+      const batches = toChunks(vectorRecords, 500);
+      let inserted = 0;
+
+      for (const batch of batches) {
+        const inserts = batch.map((record) =>
           prisma.document_vectors.create({
             data: {
               docId: record.docId,
@@ -16,9 +19,10 @@ const DocumentVectors = {
             },
           })
         );
-      });
-      await prisma.$transaction(inserts);
-      return { documentsInserted: inserts.length };
+        await prisma.$transaction(inserts);
+        inserted += inserts.length;
+      }
+      return { documentsInserted: inserted };
     } catch (error) {
       console.error("Bulk insert failed", error);
       return { documentsInserted: 0 };

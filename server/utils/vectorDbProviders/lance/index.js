@@ -259,14 +259,19 @@ class LanceDb extends VectorDatabase {
    * @returns
    */
   async updateOrCreateCollection(client, data = [], namespace) {
+    if (data.length === 0) return true;
     const hasNamespace = await this.hasNamespace(namespace);
-    if (hasNamespace) {
-      const collection = await client.openTable(namespace);
-      await collection.add(data);
-      return true;
-    }
+    const { toChunks } = require("../../helpers");
+    const batches = toChunks(data, 500);
 
-    await client.createTable(namespace, data);
+    for (let i = 0; i < batches.length; i++) {
+      if (!hasNamespace && i === 0) {
+        await client.createTable(namespace, batches[i]);
+      } else {
+        const collection = await client.openTable(namespace);
+        await collection.add(batches[i]);
+      }
+    }
     return true;
   }
 
