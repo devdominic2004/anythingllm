@@ -78,62 +78,143 @@ async function asDocX({
   let preProcessedContent = "";
   let rawXmlContent = "";
   
-  // --- MAMMOTH IMPLEMENTATION (Commented out for easy revert) ---
-  // try {
-  //   const turndownService = new TurndownService();
-  //   turndownService.remove('img'); // actively remove all image tags to prevent Base64 bloat
-  //
-  //   // Strip images using mammoth
-  //   const mammothOptions = {
-  //     convertImage: mammoth.images.inline(function(element) {
-  //         return Promise.resolve({src: ""});
-  //     })
-  //   };
-  //   
-  //   console.log(`-- Parsing content from docx via Mammoth & Turndown --`);
-  //   const result = await mammoth.convertToHtml({path: fullFilePath}, mammothOptions);
-  //   preProcessedContent = result.value;
-  //   
-  //   const markdown = turndownService.turndown(preProcessedContent);
-  //   
-  //   if (markdown.trim().length > 0) {
-  //     pageContent.push(markdown);
-  //   }
-  // } catch (err) {
-  //   console.error(`Failed to parse DOCX using mammoth:`, err);
-  // }
-  // --------------------------------------------------------------
-
-  // --- PANDOC IMPLEMENTATION ---
+  // --- NATIVE XML TO MARKDOWN IMPLEMENTATION ---
   try {
-    const { execSync } = require("child_process");
-    console.log(`-- Parsing content from docx via Pandoc --`);
-    try {
-      const AdmZip = require("adm-zip");
-      const zip = new AdmZip(fullFilePath);
-      const documentXml = zip.getEntry("word/document.xml");
-      if (documentXml) {
-        rawXmlContent = documentXml.getData().toString("utf8");
-      }
-    } catch (e) {
-      console.error(`Failed to extract word/document.xml:`, e);
-    }
+    console.log(`-- Parsing content from docx via Native XML Parser --`);
+    const AdmZip = require("adm-zip");
+    const zip = new AdmZip(fullFilePath);
+    const documentXml = zip.getEntry("word/document.xml");
+    
+    if (documentXml) {
+      rawXmlContent = documentXml.getData().toString("utf8");
+      const { parse } = require("node-html-parser");
 
-    // Pandoc command: convert docx to GitHub Flavored Markdown (gfm)
-    const markdownBuffer = execSync(`pandoc "${fullFilePath}" -f docx -t gfm`);
-    const markdown = markdownBuffer.toString("utf8");
-    
-    // Generate intermediate HTML for the raw preview view
-    const htmlBuffer = execSync(`pandoc "${fullFilePath}" -f docx -t html`);
-    preProcessedContent = htmlBuffer.toString("utf8");
-    
-    if (markdown.trim().length > 0) {
-      pageContent.push(markdown);
+      function parseDocxXmlToMarkdown(xmlString) {
+        const root = parse(xmlString);
+        let markdown = "";
+
+        const body = root.getElementsByTagName("w:body")[0];
+        if (!body) return "";
+
+        function parseParagraph(pNode) {
+          let text = "";
+          let isList = false;
+          let listIndent = 0;
+          let headingLevel = 0;
+
+          const pPr = pNode.getElementsByTagName("w:pPr")[0];
+          if (pPr) {
+            const pStyle = pPr.getElementsByTagName("w:pStyle")[0];
+            if (pStyle) {
+              const val = pStyle.getAttribute("w:val") || "";
+              if (val.startsWith("Heading")) {
+                const level = parseInt(val.replace("Heading", ""), 10);
+                if (!isNaN(level) && level >= 1 && level <= 6) {
+                  headingLevel = level;
+                }
+              }
+            }
+
+            const numPr = pPr.getElementsByTagName("w:numPr")[0];
+            if (numPr) {
+              isList = true;
+              const ilvl = numPr.getElementsByTagName("w:ilvl")[0];
+              if (ilvl) {
+                listIndent = parseInt(ilvl.getAttribute("w:val") || "0", 10);
+              }
+            }
+          }
+
+          const runs = pNode.getElementsByTagName("w:r");
+          for (const rNode of runs) {
+            let runText = "";
+            const tNodes = rNode.getElementsByTagName("w:t");
+            for (const tNode of tNodes) {
+              runText += tNode.text;
+            }
+            
+            if (!runText) continue;
+
+            const rPr = rNode.getElementsByTagName("w:rPr")[0];
+            let isBold = false;
+            let isItalic = false;
+            let isStrike = false;
+
+            if (rPr) {
+              const b = rPr.getElementsByTagName("w:b")[0];
+              if (b && b.getAttribute("w:val") !== "0" && b.getAttribute("w:val") !== "false") isBold = true;
+              
+              const i = rPr.getElementsByTagName("w:i")[0];
+              if (i && i.getAttribute("w:val") !== "0" && i.getAttribute("w:val") !== "false") isItalic = true;
+
+              const strike = rPr.getElementsByTagName("w:strike")[0];
+              if (strike && strike.getAttribute("w:val") !== "0" && strike.getAttribute("w:val") !== "false") isStrike = true;
+            }
+
+            if (isStrike) runText = `~~${runText}~~`;
+            if (isItalic) runText = `*${runText}*`;
+            if (isBold) runText = `**${runText}**`;
+
+            text += runText;
+          }
+
+          if (text.trim().length === 0) return "";
+
+          if (headingLevel > 0) {
+            text = `${"#".repeat(headingLevel)} ${text}`;
+          } else if (isList) {
+            const indentStr = "  ".repeat(listIndent);
+            text = `${indentStr}- ${text}`;
+          }
+
+          return text;
+        }
+
+        for (const node of body.childNodes) {
+          if (node.rawTagName === "w:p") {
+            const pText = parseParagraph(node);
+            if (pText) markdown += pText + "\n\n";
+          } else if (node.rawTagName === "w:tbl") {
+            const rows = node.getElementsByTagName("w:tr");
+            let isFirstRow = true;
+            for (const row of rows) {
+              const cells = row.getElementsByTagName("w:tc");
+              let rowText = "|";
+              let headerDivider = "|";
+              for (const cell of cells) {
+                const cellParas = cell.getElementsByTagName("w:p");
+                let cellText = cellParas.map(p => parseParagraph(p).replace(/^[#-]+\s*/, "")).join(" ").replace(/\n/g, " ");
+                rowText += ` ${cellText.trim() || " "} |`;
+                if (isFirstRow) {
+                  headerDivider += " --- |";
+                }
+              }
+              markdown += rowText + "\n";
+              if (isFirstRow) {
+                markdown += headerDivider + "\n";
+                isFirstRow = false;
+              }
+            }
+            markdown += "\n";
+          }
+        }
+
+        return markdown.trim();
+      }
+
+      const markdown = parseDocxXmlToMarkdown(rawXmlContent);
+      preProcessedContent = markdown; // No HTML conversion needed anymore, just use the raw markdown
+      
+      if (markdown.trim().length > 0) {
+        pageContent.push(markdown);
+      }
+    } else {
+      console.error(`Failed to extract word/document.xml from ${filename}`);
     }
   } catch (err) {
-    console.error(`Failed to parse DOCX using Pandoc:`, err);
+    console.error(`Failed to parse DOCX using Native Parser:`, err);
   }
-  // -----------------------------
+  // --------------------------------------------------------------
 
   const visionImagesBase64 = options.documentVision
     ? extractDocxVisionImages(fullFilePath)
