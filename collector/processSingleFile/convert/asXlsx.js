@@ -37,17 +37,22 @@ function convertToKeyValue(data) {
   });
 
   const rows = data.slice(1);
-  const formattedRows = rows.map((row, rowIndex) => {
-    let rowText = `--- Row ${rowIndex + 2} ---\n`;
-    row.forEach((cell, cellIndex) => {
-      const header = headers[cellIndex] || `Column ${cellIndex + 1}`;
-      const value = (cell === null || cell === undefined) ? "" : String(cell).trim();
-      if (value !== "") {
-        rowText += `${header}: ${value}\n`;
-      }
-    });
-    return rowText;
-  });
+  const formattedRows = rows
+    .map((row, rowIndex) => {
+      let hasValue = false;
+      let rowText = `--- Row ${rowIndex + 2} ---\n`;
+      row.forEach((cell, cellIndex) => {
+        const header = headers[cellIndex] || `Column ${cellIndex + 1}`;
+        const value =
+          cell === null || cell === undefined ? "" : String(cell).trim();
+        if (value !== "") {
+          rowText += `${header}: ${value}\n`;
+          hasValue = true;
+        }
+      });
+      return hasValue ? rowText : null;
+    })
+    .filter(Boolean);
 
   return formattedRows.join("\n");
 }
