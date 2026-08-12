@@ -134,8 +134,21 @@ const Document = {
         userId,
       };
 
-      const payload = { ...data, docId };
-      delete payload.preProcessedContent;
+      const payload = {
+        id: data.id,
+        url: data.url,
+        title: data.title,
+        docAuthor: data.docAuthor,
+        description: data.description,
+        docSource: data.docSource,
+        chunkSource: data.chunkSource,
+        published: data.published,
+        wordCount: data.wordCount,
+        pageContent: data.pageContent,
+        token_count_estimate: data.token_count_estimate,
+        docId: docId,
+      };
+
       const { vectorized, error } = await VectorDb.addDocumentToNamespace(
         workspace.slug,
         payload,
