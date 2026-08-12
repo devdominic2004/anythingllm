@@ -134,9 +134,11 @@ const Document = {
         userId,
       };
 
+      const payload = { ...data, docId };
+      delete payload.preProcessedContent;
       const { vectorized, error } = await VectorDb.addDocumentToNamespace(
         workspace.slug,
-        { ...data, docId },
+        payload,
         path
       );
 
