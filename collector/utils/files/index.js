@@ -84,7 +84,11 @@ function parseableAsText(filepath) {
 }
 
 function trashFile(filepath) {
+  // Original file preservation requested by user - do not delete original files.
+  // We keep the original file in the directory.
+  return;
   if (!fs.existsSync(filepath)) return;
+
 
   try {
     const isDir = fs.lstatSync(filepath).isDirectory();

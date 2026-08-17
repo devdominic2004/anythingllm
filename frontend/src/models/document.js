@@ -44,6 +44,30 @@ const Document = {
         return { success: false, error: e.message };
       });
   },
+  downloadOriginal: async (folderName, filename) => {
+    return fetch(`${API_BASE}/document/${folderName}/${filename}/original`, {
+      method: "GET",
+      headers: baseHeaders(),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to download original file. It may have been deleted.");
+        return res.blob();
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        return { success: true };
+      })
+      .catch((e) => {
+        console.error("Error downloading original file:", e);
+        return { success: false, error: e.message };
+      });
+  },
 };
 
 export default Document;

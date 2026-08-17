@@ -219,9 +219,21 @@ export function CitationDetailModal({ source, onClose }) {
                 </div>
               </a>
             ) : (
-              <h3 className="text-xl font-semibold text-white light:text-slate-900 overflow-hidden overflow-ellipsis whitespace-nowrap">
-                {truncate(title, 45)}
-              </h3>
+              <div className="flex flex-col w-full">
+                <h3 className="text-xl font-semibold text-white light:text-slate-900 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                  {truncate(title, 45)}
+                </h3>
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    // folderName defaults to custom-documents since citations don't currently return the folder structure
+                    await import("@/models/document").then((m) => m.default.downloadOriginal("custom-documents", title));
+                  }}
+                  className="mt-1 text-sm text-blue-400 hover:text-blue-300 light:text-blue-600 light:hover:text-blue-800 text-left w-fit"
+                >
+                  Download Original Document
+                </button>
+              </div>
             )}
           </div>
           {references > 1 && (

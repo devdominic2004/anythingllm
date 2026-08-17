@@ -133,6 +133,32 @@ function documentEndpoints(app) {
       }
     }
   );
+
+  app.get(
+    "/document/:folderName/:filename/original",
+    [validatedRequest, flexUserRoleValid([ROLES.admin, ROLES.manager, ROLES.workspace_builder, ROLES.default])],
+    async (request, response) => {
+      try {
+        const { folderName, filename } = request.params;
+        const filePath = path.join(documentsPath, normalizePath(folderName), normalizePath(filename));
+        
+        if (!isWithin(path.resolve(documentsPath), path.resolve(filePath))) {
+          response.status(403).json({ success: false, error: "Invalid file location" });
+          return;
+        }
+
+        if (!fs.existsSync(filePath)) {
+          response.status(404).json({ success: false, error: "Original file not found. It may have been deleted by the system." });
+          return;
+        }
+
+        response.download(filePath, filename);
+      } catch (e) {
+        console.error("Error downloading original file:", e);
+        response.status(500).json({ success: false, error: "Failed to download original file" });
+      }
+    }
+  );
 }
 
 module.exports = { documentEndpoints };
