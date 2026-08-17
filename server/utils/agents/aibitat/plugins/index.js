@@ -1,5 +1,6 @@
 const { webBrowsing } = require("./web-browsing.js");
 const { webScraping } = require("./web-scraping.js");
+const { exactSearch } = require("./exact-search.js");
 const { websocket } = require("./websocket.js");
 const { docSummarizer } = require("./summarize.js");
 const { chatHistory } = require("./chat-history.js");
@@ -15,6 +16,7 @@ const { requestUserInput } = require("./request-user-input.js");
 const { createScheduledJob } = require("./create-scheduled-job/index.js");
 
 module.exports = {
+  exactSearch,
   webScraping,
   webBrowsing,
   websocket,
@@ -32,6 +34,7 @@ module.exports = {
   createScheduledJob,
 
   // Plugin name aliases so they can be pulled by slug as well.
+  [exactSearch.name]: exactSearch,
   [webScraping.name]: webScraping,
   [webBrowsing.name]: webBrowsing,
   [websocket.name]: websocket,
