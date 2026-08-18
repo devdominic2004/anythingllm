@@ -135,24 +135,73 @@ function documentEndpoints(app) {
   );
 
   app.get(
-    "/document/:folderName/:filename/original",
+    "/document/original",
     [validatedRequest, flexUserRoleValid([ROLES.admin, ROLES.manager, ROLES.workspace_builder, ROLES.default])],
     async (request, response) => {
       try {
-        const { folderName, filename } = request.params;
-        const filePath = path.join(documentsPath, normalizePath(folderName), normalizePath(filename));
-        
-        if (!isWithin(path.resolve(documentsPath), path.resolve(filePath))) {
-          response.status(403).json({ success: false, error: "Invalid file location" });
+        const { sourceUrl = "", docTitle = "" } = request.query;
+        if (!sourceUrl && !docTitle) {
+          response.status(400).json({ success: false, error: "Missing sourceUrl or docTitle" });
           return;
         }
 
-        if (!fs.existsSync(filePath)) {
+        let targetFilePath = null;
+
+        // 1. Try finding by docTitle if provided
+        if (docTitle) {
+          const cleanTitle = path.basename(docTitle.trim());
+          const candidateInCustom = path.resolve(documentsPath, "custom-documents", cleanTitle);
+          if (fs.existsSync(candidateInCustom) && isWithin(documentsPath, candidateInCustom)) {
+            targetFilePath = candidateInCustom;
+          } else {
+            // Search across subfolders in documentsPath
+            for (const folder of fs.readdirSync(documentsPath)) {
+              const fullFolder = path.resolve(documentsPath, folder);
+              if (fs.existsSync(fullFolder) && fs.lstatSync(fullFolder).isDirectory()) {
+                const checkFile = path.resolve(fullFolder, cleanTitle);
+                if (fs.existsSync(checkFile) && isWithin(documentsPath, checkFile)) {
+                  targetFilePath = checkFile;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // 2. If not found by docTitle, resolve using sourceUrl
+        if (!targetFilePath && sourceUrl) {
+          let parsedPath = sourceUrl;
+          if (sourceUrl.startsWith("file://")) {
+            parsedPath = sourceUrl.replace("file://", "");
+          }
+          
+          if (parsedPath.includes("/collector/hotdir/")) {
+            const filename = path.basename(parsedPath);
+            parsedPath = path.resolve(documentsPath, "custom-documents", filename);
+          } else if (!path.isAbsolute(parsedPath)) {
+            parsedPath = path.resolve(documentsPath, normalizePath(parsedPath));
+          }
+
+          const folderPath = path.dirname(parsedPath);
+          if (isWithin(path.resolve(documentsPath), path.resolve(folderPath)) && fs.existsSync(folderPath)) {
+            if (parsedPath.endsWith(".txt") || parsedPath.endsWith(".json") || parsedPath.endsWith(".md")) {
+              const filesInDir = fs.readdirSync(folderPath);
+              const originalFile = filesInDir.find(f => !f.endsWith(".json") && !f.endsWith(".md") && !f.endsWith(".txt"));
+              if (originalFile) {
+                targetFilePath = path.join(folderPath, originalFile);
+              }
+            } else if (fs.existsSync(parsedPath)) {
+              targetFilePath = parsedPath;
+            }
+          }
+        }
+
+        if (!targetFilePath || !fs.existsSync(targetFilePath)) {
           response.status(404).json({ success: false, error: "Original file not found. It may have been deleted by the system." });
           return;
         }
 
-        response.download(filePath, filename);
+        response.download(targetFilePath, path.basename(targetFilePath));
       } catch (e) {
         console.error("Error downloading original file:", e);
         response.status(500).json({ success: false, error: "Failed to download original file" });

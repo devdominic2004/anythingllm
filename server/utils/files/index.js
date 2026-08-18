@@ -213,8 +213,31 @@ async function purgeSourceDocument(filename = null) {
   )
     return;
 
+  let backupFilePath = null;
+  let originalFilename = null;
+  try {
+    if (filePath.endsWith(".json")) {
+      const fileContent = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      if (fileContent.title) {
+        originalFilename = fileContent.title;
+        backupFilePath = path.resolve(path.dirname(filePath), fileContent.title);
+      }
+    }
+  } catch (e) {}
+
   console.log(`Purging source document of ${filename}.`);
   fs.rmSync(filePath);
+
+  // Immediately delete the original backup file if it exists.
+  if (backupFilePath && fs.existsSync(backupFilePath)) {
+    try {
+      console.log(`Purging original backup file: ${originalFilename}`);
+      fs.rmSync(backupFilePath);
+    } catch (e) {
+      console.error('Failed to purge original backup file', e);
+    }
+  }
+
   return;
 }
 

@@ -9,6 +9,7 @@ const {
   isTextType,
   normalizePath,
   isWithin,
+  documentsFolder,
 } = require("../utils/files");
 const RESERVED_FILES = ["__HOTDIR__.md"];
 
@@ -82,14 +83,43 @@ async function processSingleFile(targetFilename, options = {}, metadata = {}) {
   const FileTypeProcessor = require(SUPPORTED_FILETYPE_CONVERTERS[
     processFileAs
   ]);
-  return await FileTypeProcessor({
+  const backupFilePath = fullFilePath + ".backup";
+  try {
+    if (fs.existsSync(fullFilePath)) {
+      fs.copyFileSync(fullFilePath, backupFilePath);
+    }
+  } catch (e) {
+    console.error("Failed to create backup of original file", e);
+  }
+
+  const result = await FileTypeProcessor({
     fullFilePath,
     filename: targetFilename,
     options,
     metadata,
   });
-}
 
+  // Preserve the original file by copying it to the folder where the parsed documents are stored
+  try {
+    if (result.success && result.documents.length > 0) {
+      const firstDocLocation = result.documents[0].location; // e.g., "custom-documents/file.json" or "folderName/sheet.json"
+      const folderPath = path.resolve(documentsFolder, path.dirname(firstDocLocation));
+
+      if (fs.existsSync(folderPath) && fs.existsSync(backupFilePath)) {
+        const originalFileDest = path.resolve(folderPath, path.basename(fullFilePath));
+        fs.copyFileSync(backupFilePath, originalFileDest);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to copy original file to documents folder", e);
+  } finally {
+    if (fs.existsSync(backupFilePath)) {
+      fs.unlinkSync(backupFilePath);
+    }
+  }
+
+  return result;
+}
 module.exports = {
   processSingleFile,
 };

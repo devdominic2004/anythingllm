@@ -110,14 +110,15 @@ export function SourceTypeCircle({
 export function combineLikeSources(sources) {
   const combined = {};
   sources.forEach((source) => {
-    const { id, title, text, chunkSource = "", score = null } = source;
+    const { id, title, text, chunkSource = "", score = null, url = "" } = source;
     if (combined.hasOwnProperty(title)) {
-      combined[title].chunks.push({ id, text, chunkSource, score });
+      combined[title].chunks.push({ id, text, chunkSource, score, url });
       combined[title].references += 1;
     } else {
       combined[title] = {
         title,
-        chunks: [{ id, text, chunkSource, score }],
+        url,
+        chunks: [{ id, text, chunkSource, score, url }],
         references: 1,
       };
     }
@@ -196,6 +197,9 @@ export function omitChunkHeader(text) {
 
 export function CitationDetailModal({ source, onClose }) {
   const { references, title, chunks } = source;
+  const chunkSource = chunks[0]?.chunkSource || "";
+  // Fallback to the source object's URL if chunk URL is missing
+  const sourceUrl = chunks[0]?.url || source.url || "";
   const { isUrl, text: webpageUrl, href: linkTo } = parseChunkSource(source);
   const { t } = useTranslation();
 
@@ -226,8 +230,9 @@ export function CitationDetailModal({ source, onClose }) {
                 <button
                   onClick={async (e) => {
                     e.preventDefault();
-                    // folderName defaults to custom-documents since citations don't currently return the folder structure
-                    await import("@/models/document").then((m) => m.default.downloadOriginal("custom-documents", title));
+                    await import("@/models/document").then((m) =>
+                      m.default.downloadOriginal({ sourceUrl, docTitle: title })
+                    );
                   }}
                   className="mt-1 text-sm text-blue-400 hover:text-blue-300 light:text-blue-600 light:hover:text-blue-800 text-left w-fit"
                 >

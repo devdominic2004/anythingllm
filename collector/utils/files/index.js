@@ -142,27 +142,6 @@ function writeToServerDocuments({
     encoding: "utf-8",
   });
 
-  // Preserve the original file by copying it to the destination folder
-  try {
-    let originalFilePath = null;
-    if (options && options.absolutePath && fs.existsSync(options.absolutePath)) {
-      originalFilePath = options.absolutePath;
-    } else {
-      const WATCH_DIRECTORY = path.resolve(__dirname, "../../hotdir");
-      const possiblePath = path.resolve(WATCH_DIRECTORY, filename);
-      if (fs.existsSync(possiblePath)) {
-        originalFilePath = possiblePath;
-      }
-    }
-
-    if (originalFilePath) {
-      const originalFileDest = normalizePath(path.resolve(destination, safeFilename));
-      fs.copyFileSync(originalFilePath, originalFileDest);
-    }
-  } catch (e) {
-    console.error("Failed to copy original file to documents folder", e);
-  }
-
   return {
     ...data,
     // relative location string that can be passed into the /update-embeddings api

@@ -8,6 +8,9 @@ import { toPercentString } from "@/utils/numbers";
 
 export default function SourceDetailView({ source, onBack, onClose }) {
   const { t } = useTranslation();
+  const sourceUrl = source.chunks?.[0]?.url || source.url || "";
+  const title = source.title || "";
+
   return (
     <>
       <div className="flex items-center justify-between">
@@ -18,9 +21,22 @@ export default function SourceDetailView({ source, onBack, onClose }) {
         >
           <CaretLeft size={20} weight="bold" />
         </button>
-        <p className="font-semibold text-base leading-6 text-white light:text-slate-900 truncate px-2">
-          {truncate(source.title, 30)}
-        </p>
+        <div className="flex flex-col items-center max-w-[70%]">
+          <p className="font-semibold text-base leading-6 text-white light:text-slate-900 truncate px-2">
+            {truncate(title, 30)}
+          </p>
+          <button
+            onClick={async (e) => {
+              e.preventDefault();
+              await import("@/models/document").then((m) =>
+                m.default.downloadOriginal({ sourceUrl, docTitle: title })
+              );
+            }}
+            className="text-xs text-blue-400 hover:text-blue-300 light:text-blue-600 light:hover:text-blue-800"
+          >
+            Download Original Document
+          </button>
+        </div>
         <button
           onClick={onClose}
           type="button"
