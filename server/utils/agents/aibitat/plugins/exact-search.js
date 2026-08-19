@@ -84,7 +84,7 @@ const exactSearch = {
               }
 
               this.super.introspect(
-                `${this.caller}: Found ${results.length} exact matches. Returning to context.`
+                `${this.caller}: Found ${results.length} exact match(es) for "${query}".`
               );
 
               // Add clean citations (strip heavy vectors and internal fields)
@@ -97,21 +97,23 @@ const exactSearch = {
                 this.super.addCitation(sources);
               }
 
-              let combinedText = `Exact Keyword Matches for "${query}":\n\n`;
+              let combinedText = `Found ${results.length} exact match(es) for "${query}":\n\n`;
               for (const res of results) {
+                const title = res.title || "Document";
                 const textSnippet =
                   res.text?.length > 1500
                     ? res.text.slice(0, 1500) + "... [truncated]"
                     : res.text;
-                combinedText += `Source: ${res.title || "Document"}\nContent:\n${textSnippet}\n\n`;
+                combinedText += `Source: ${title}\nContent:\n${textSnippet}\n\n`;
               }
+              combinedText += `Please provide a clear, helpful, and natural response to the user's prompt based on the exact match information above.`;
 
               return combinedText;
             } catch (error) {
               this.super.handlerProps?.log?.(
                 `Exact Keyword Search Error: ${error.message}`
               );
-              return `There was an error while searching for the exact keyword. ${error.message}`;
+              return `There was an error while searching for the exact keyword: ${error.message}`;
             }
           },
         });

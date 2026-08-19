@@ -308,67 +308,88 @@ class OllamaProvider extends InheritMultiple([Provider, UnTooled]) {
       const formattedMessages = this.#formatMessagesForOllamaTools(messages);
       const tools = formatFunctionsToTools(functions);
 
-      const stream = await this.client.chat({
-        model: this.model,
-        messages: formattedMessages,
-        tools,
-        stream: true,
-        options: this.queryOptions,
-      });
+      try {
+        const stream = await this.client.chat({
+          model: this.model,
+          messages: formattedMessages,
+          tools,
+          stream: true,
+          options: this.queryOptions,
+        });
 
-      let textResponse = "";
-      let toolCalls = null;
+        let textResponse = "";
+        let toolCalls = null;
 
-      for await (const chunk of stream) {
-        // Capture usage from final chunk (Ollama sends usage when done=true)
-        if (chunk.done === true) {
-          this.recordUsage({
-            prompt_tokens: chunk.prompt_eval_count || 0,
-            completion_tokens: chunk.eval_count || 0,
-          });
+        for await (const chunk of stream) {
+          // Capture usage from final chunk (Ollama sends usage when done=true)
+          if (chunk.done === true) {
+            this.recordUsage({
+              prompt_tokens: chunk.prompt_eval_count || 0,
+              completion_tokens: chunk.eval_count || 0,
+            });
+          }
+
+          if (!chunk?.message) continue;
+
+          if (chunk.message.content) {
+            textResponse += chunk.message.content;
+            eventHandler?.("reportStreamEvent", {
+              type: "textResponseChunk",
+              uuid: msgUUID,
+              content: chunk.message.content,
+            });
+          }
+
+          if (chunk.message.tool_calls?.length > 0) {
+            toolCalls = chunk.message.tool_calls;
+            eventHandler?.("reportStreamEvent", {
+              uuid: `${msgUUID}:tool_call_invocation`,
+              type: "toolCallInvocation",
+              content: `Tool Call: ${toolCalls[0].function.name}(${JSON.stringify(toolCalls[0].function.arguments)})`,
+            });
+          }
         }
 
-        if (!chunk?.message) continue;
+        if (toolCalls && toolCalls.length > 0) {
+          const toolCall = toolCalls[0];
+          const args =
+            typeof toolCall.function.arguments === "string"
+              ? safeJsonParse(toolCall.function.arguments, {})
+              : toolCall.function.arguments || {};
 
-        if (chunk.message.content) {
-          textResponse += chunk.message.content;
-          eventHandler?.("reportStreamEvent", {
-            type: "textResponseChunk",
+          return {
+            textResponse,
+            functionCall: {
+              id: `ollama_${v4()}`,
+              name: toolCall.function.name,
+              arguments: args,
+            },
+            cost: 0,
             uuid: msgUUID,
-            content: chunk.message.content,
-          });
+          };
         }
 
-        if (chunk.message.tool_calls?.length > 0) {
-          toolCalls = chunk.message.tool_calls;
-          eventHandler?.("reportStreamEvent", {
-            uuid: `${msgUUID}:tool_call_invocation`,
-            type: "toolCallInvocation",
-            content: `Tool Call: ${toolCalls[0].function.name}(${JSON.stringify(toolCalls[0].function.arguments)})`,
-          });
+        return { textResponse, functionCall: null, cost: 0, uuid: msgUUID };
+      } catch (err) {
+        this.providerLog(
+          `Native Ollama tool calling failed (${err.message}). Falling back to clean context synthesis.`
+        );
+        const fallbackStream = await this.#handleFunctionCallStream({
+          messages: this.cleanMsgs(messages),
+        });
+        let fallbackText = "";
+        for await (const chunk of fallbackStream) {
+          if (chunk?.message?.content) {
+            fallbackText += chunk.message.content;
+            eventHandler?.("reportStreamEvent", {
+              type: "textResponseChunk",
+              uuid: msgUUID,
+              content: chunk.message.content,
+            });
+          }
         }
+        return { textResponse: fallbackText, functionCall: null, cost: 0, uuid: msgUUID };
       }
-
-      if (toolCalls && toolCalls.length > 0) {
-        const toolCall = toolCalls[0];
-        const args =
-          typeof toolCall.function.arguments === "string"
-            ? safeJsonParse(toolCall.function.arguments, {})
-            : toolCall.function.arguments || {};
-
-        return {
-          textResponse,
-          functionCall: {
-            id: `ollama_${v4()}`,
-            name: toolCall.function.name,
-            arguments: args,
-          },
-          cost: 0,
-          uuid: msgUUID,
-        };
-      }
-
-      return { textResponse, functionCall: null, cost: 0, uuid: msgUUID };
     }
 
     // Fallback: UnTooled prompt-based approach via the native Ollama SDK

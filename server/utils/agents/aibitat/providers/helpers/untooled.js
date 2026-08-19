@@ -13,9 +13,17 @@ class UnTooled {
     const modifiedMessages = [];
     messages.forEach((msg) => {
       if (msg.role === "function") {
-        const prevMsg = modifiedMessages[modifiedMessages.length - 1].content;
-        modifiedMessages[modifiedMessages.length - 1].content =
-          `${prevMsg}\n${msg.content}`;
+        const lastIdx = modifiedMessages.length - 1;
+        if (lastIdx >= 0) {
+          const prevMsg = modifiedMessages[lastIdx].content;
+          modifiedMessages[lastIdx].content =
+            `${prevMsg}\n\n[Document Search Result]\n${msg.content}\n\nPlease provide a clear, helpful, and natural response to the user's request based on the document information above.`;
+        } else {
+          modifiedMessages.push({
+            role: "user",
+            content: `[Document Search Result]\n${msg.content}\n\nPlease provide a clear, helpful, and natural response to the user's request based on the document information above.`,
+          });
+        }
         return;
       }
       // Format messages with attachments for multimodal support
