@@ -54,7 +54,7 @@ const exactSearch = {
                 return "Exact keyword search is currently only supported when using LanceDb as the vector database.";
               }
 
-              const workspace = this.super.handlerProps.invocation.workspace;
+              const workspace = this.super.handlerProps?.invocation?.workspace;
               if (!workspace) {
                 return "Could not determine the current workspace.";
               }
@@ -67,12 +67,13 @@ const exactSearch = {
               }
 
               const table = await client.openTable(workspace.slug);
+              const maxResults = workspace?.topN ? Math.min(workspace.topN, 6) : 4;
 
               // LanceDb SQL ILIKE query for exact string match
               const results = await table
                 .query()
                 .where(`text ILIKE '%${query.replace(/'/g, "''")}%'`)
-                .limit(20)
+                .limit(maxResults)
                 .toArray();
 
               if (results.length === 0) {
@@ -86,13 +87,11 @@ const exactSearch = {
                 `${this.caller}: Found ${results.length} exact matches. Returning to context.`
               );
 
-              // Add citations
-              const sources = results.map((rest) => {
-                return {
-                  ...rest,
-                  score: 1.0, // Exact match
-                };
-              });
+              // Add clean citations (strip heavy vectors and internal fields)
+              const sources = results.map(({ vector: _v, _distance: _d, ...rest }) => ({
+                ...rest,
+                score: 1.0, // Exact match
+              }));
 
               if (typeof this.super.addCitation === "function") {
                 this.super.addCitation(sources);
@@ -100,12 +99,16 @@ const exactSearch = {
 
               let combinedText = `Exact Keyword Matches for "${query}":\n\n`;
               for (const res of results) {
-                combinedText += `Source: ${res.title}\nContent:\n${res.text}\n\n`;
+                const textSnippet =
+                  res.text?.length > 1500
+                    ? res.text.slice(0, 1500) + "... [truncated]"
+                    : res.text;
+                combinedText += `Source: ${res.title || "Document"}\nContent:\n${textSnippet}\n\n`;
               }
 
               return combinedText;
             } catch (error) {
-              this.super.handlerProps.log(
+              this.super.handlerProps?.log?.(
                 `Exact Keyword Search Error: ${error.message}`
               );
               return `There was an error while searching for the exact keyword. ${error.message}`;
