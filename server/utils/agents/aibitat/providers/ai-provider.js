@@ -139,9 +139,12 @@ class Provider {
   optsOutOfNativeToolCallingViaEnv(providerTag = null) {
     if (!providerTag) return false;
     if (!("PROVIDER_DISABLE_NATIVE_TOOL_CALLING" in process.env)) return false;
-    const disabledProviders =
-      process.env.PROVIDER_DISABLE_NATIVE_TOOL_CALLING.split(",");
-    return disabledProviders.includes(providerTag);
+    const disabledProviders = process.env.PROVIDER_DISABLE_NATIVE_TOOL_CALLING
+      .toLowerCase()
+      .split(/[,.\s;|]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return disabledProviders.includes(providerTag.toLowerCase());
   }
 
   /**

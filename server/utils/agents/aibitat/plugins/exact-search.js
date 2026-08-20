@@ -50,31 +50,81 @@ const exactSearch = {
               );
 
               const vectorDB = getVectorDbClass();
-              if (vectorDB.name !== "LanceDb") {
-                return "Exact keyword search is currently only supported when using LanceDb as the vector database.";
-              }
-
               const workspace = this.super.handlerProps?.invocation?.workspace;
               if (!workspace) {
                 return "Could not determine the current workspace.";
               }
 
-              const { client } = await vectorDB.connect();
-              const tableExists = await vectorDB.namespaceExists(client, workspace.slug);
-
-              if (!tableExists) {
-                return "No documents found in this workspace to search.";
-              }
-
-              const table = await client.openTable(workspace.slug);
               const maxResults = workspace?.topN ? Math.min(workspace.topN, 6) : 4;
+              let results = [];
 
-              // LanceDb SQL ILIKE query for exact string match
-              const results = await table
-                .query()
-                .where(`text ILIKE '%${query.replace(/'/g, "''")}%'`)
-                .limit(maxResults)
-                .toArray();
+              if (vectorDB.name === "LanceDb") {
+                const { client } = await vectorDB.connect();
+                const tableExists = await vectorDB.namespaceExists(client, workspace.slug);
+                if (!tableExists) return "No documents found in this workspace to search.";
+                const table = await client.openTable(workspace.slug);
+                results = await table
+                  .query()
+                  .where(`text ILIKE '%${query.replace(/'/g, "''")}%'`)
+                  .limit(maxResults)
+                  .toArray();
+              } else if (vectorDB.name === "QDrant") {
+                const { client } = await vectorDB.connect();
+                const namespaceExists = await vectorDB.namespaceExists(client, workspace.slug);
+                if (!namespaceExists) return "No documents found in this workspace to search.";
+
+                let matchedPoints = [];
+                // 1. Try Qdrant full-text search match filter
+                try {
+                  const searchRes = await client.scroll(workspace.slug, {
+                    filter: {
+                      must: [{ key: "text", match: { text: query } }],
+                    },
+                    limit: maxResults,
+                    with_payload: true,
+                  });
+                  matchedPoints = searchRes.points || [];
+                } catch (e) {}
+
+                // 2. If full-text filter yielded no results, scroll and scan payloads (case-insensitive substring match)
+                if (matchedPoints.length === 0) {
+                  let nextOffset = null;
+                  let totalScanned = 0;
+                  const queryLower = query.toLowerCase();
+                  while (matchedPoints.length < maxResults && totalScanned < 1000) {
+                    const scroll = await client.scroll(workspace.slug, {
+                      limit: 100,
+                      offset: nextOffset,
+                      with_payload: true,
+                    });
+                    const points = scroll.points || [];
+                    if (points.length === 0) break;
+                    for (const p of points) {
+                      if (
+                        p.payload?.text &&
+                        p.payload.text.toLowerCase().includes(queryLower)
+                      ) {
+                        matchedPoints.push(p);
+                        if (matchedPoints.length >= maxResults) break;
+                      }
+                    }
+                    nextOffset = scroll.next_page_offset;
+                    totalScanned += points.length;
+                    if (!nextOffset) break;
+                  }
+                }
+
+                results = matchedPoints.map((p) => ({
+                  id: p.id,
+                  text: p.payload?.text || "",
+                  title: p.payload?.title || p.payload?.source || "Document",
+                  docTitle: p.payload?.docTitle || p.payload?.title,
+                  sourceUrl: p.payload?.sourceUrl || p.payload?.url,
+                  ...p.payload,
+                }));
+              } else {
+                return `Exact keyword search is currently supported for LanceDb and QDrant vector databases.`;
+              }
 
               if (results.length === 0) {
                 this.super.introspect(

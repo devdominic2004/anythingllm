@@ -3,22 +3,18 @@ const path = require("path");
 const { v5: uuidv5 } = require("uuid");
 const { Document } = require("../../models/documents");
 const { DocumentSyncQueue } = require("../../models/documentSyncQueue");
-const documentsPath =
-  process.env.NODE_ENV === "development"
-    ? path.resolve(__dirname, `../../storage/documents`)
-    : path.resolve(process.env.STORAGE_DIR, `documents`);
-const directUploadsPath =
-  process.env.NODE_ENV === "development"
-    ? path.resolve(__dirname, `../../storage/direct-uploads`)
-    : path.resolve(process.env.STORAGE_DIR, `direct-uploads`);
-const vectorCachePath =
-  process.env.NODE_ENV === "development"
-    ? path.resolve(__dirname, `../../storage/vector-cache`)
-    : path.resolve(process.env.STORAGE_DIR, `vector-cache`);
-const hotdirPath =
-  process.env.NODE_ENV === "development"
-    ? path.resolve(__dirname, `../../../collector/hotdir`)
-    : path.resolve(process.env.STORAGE_DIR, `../../collector/hotdir`);
+const documentsPath = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR, `documents`)
+  : path.resolve(__dirname, `../../storage/documents`);
+const directUploadsPath = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR, `direct-uploads`)
+  : path.resolve(__dirname, `../../storage/direct-uploads`);
+const vectorCachePath = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR, `vector-cache`)
+  : path.resolve(__dirname, `../../storage/vector-cache`);
+const hotdirPath = process.env.STORAGE_DIR
+  ? path.resolve(process.env.STORAGE_DIR, `../collector/hotdir`)
+  : path.resolve(__dirname, `../../../collector/hotdir`);
 
 // Should take in a folder that is a subfolder of documents
 // eg: youtube-subject/video-123.json

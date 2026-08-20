@@ -36,6 +36,11 @@ class LocalAiProvider extends InheritMultiple([Provider, UnTooled]) {
     return true;
   }
 
+  async supportsNativeToolCalling() {
+    if (this.optsOutOfNativeToolCallingViaEnv(this.providerTag)) return false;
+    return false;
+  }
+
   // ---- UnTooled callbacks (used when native tool calling is not supported) ----
 
   async #handleFunctionCallChat({ messages = [] }) {
@@ -98,14 +103,16 @@ class LocalAiProvider extends InheritMultiple([Provider, UnTooled]) {
     } catch (error) {
       console.error(error.message, error);
       if (error instanceof OpenAI.AuthenticationError) throw error;
-      if (
-        error instanceof OpenAI.RateLimitError ||
-        error instanceof OpenAI.InternalServerError ||
-        error instanceof OpenAI.APIError
-      ) {
-        throw new RetryError(error.message);
-      }
-      throw error;
+      this.providerLog(
+        `Native tool calling failed (${error.message}). Falling back to clean context synthesis.`
+      );
+      return await UnTooled.prototype.stream.call(
+        this,
+        messages,
+        functions,
+        this.#handleFunctionCallStream.bind(this),
+        eventHandler
+      );
     }
   }
 

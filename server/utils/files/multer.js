@@ -10,10 +10,9 @@ const { normalizePath, sanitizeFileName } = require(".");
  */
 const fileUploadStorage = multer.diskStorage({
   destination: function (_, __, cb) {
-    const uploadOutput =
-      process.env.NODE_ENV === "development"
-        ? path.resolve(__dirname, `../../../collector/hotdir`)
-        : path.resolve(process.env.STORAGE_DIR, `../../collector/hotdir`);
+    const uploadOutput = process.env.STORAGE_DIR
+      ? path.resolve(process.env.STORAGE_DIR, `../collector/hotdir`)
+      : path.resolve(__dirname, `../../../collector/hotdir`);
     cb(null, uploadOutput);
   },
   filename: function (_, file, cb) {
@@ -30,10 +29,9 @@ const fileUploadStorage = multer.diskStorage({
  */
 const fileAPIUploadStorage = multer.diskStorage({
   destination: function (_, __, cb) {
-    const uploadOutput =
-      process.env.NODE_ENV === "development"
-        ? path.resolve(__dirname, `../../../collector/hotdir`)
-        : path.resolve(process.env.STORAGE_DIR, `../../collector/hotdir`);
+    const uploadOutput = process.env.STORAGE_DIR
+      ? path.resolve(process.env.STORAGE_DIR, `../collector/hotdir`)
+      : path.resolve(__dirname, `../../../collector/hotdir`);
     cb(null, uploadOutput);
   },
   filename: function (_, file, cb) {
@@ -47,10 +45,9 @@ const fileAPIUploadStorage = multer.diskStorage({
 // Asset storage for logos
 const assetUploadStorage = multer.diskStorage({
   destination: function (_, __, cb) {
-    const uploadOutput =
-      process.env.NODE_ENV === "development"
-        ? path.resolve(__dirname, `../../storage/assets`)
-        : path.resolve(process.env.STORAGE_DIR, "assets");
+    const uploadOutput = process.env.STORAGE_DIR
+      ? path.resolve(process.env.STORAGE_DIR, "assets")
+      : path.resolve(__dirname, `../../storage/assets`);
     fs.mkdirSync(uploadOutput, { recursive: true });
     return cb(null, uploadOutput);
   },
@@ -67,10 +64,9 @@ const assetUploadStorage = multer.diskStorage({
  */
 const pfpUploadStorage = multer.diskStorage({
   destination: function (_, __, cb) {
-    const uploadOutput =
-      process.env.NODE_ENV === "development"
-        ? path.resolve(__dirname, `../../storage/assets/pfp`)
-        : path.resolve(process.env.STORAGE_DIR, "assets/pfp");
+    const uploadOutput = process.env.STORAGE_DIR
+      ? path.resolve(process.env.STORAGE_DIR, "assets/pfp")
+      : path.resolve(__dirname, `../../storage/assets/pfp`);
     fs.mkdirSync(uploadOutput, { recursive: true });
     return cb(null, uploadOutput);
   },

@@ -27,10 +27,33 @@ class UnTooled {
         return;
       }
       // Format messages with attachments for multimodal support
-      // Uses formatMessageWithAttachments inherited from Provider base class
-      modifiedMessages.push(this.formatMessageWithAttachments(msg));
+      if (typeof this.formatMessageWithAttachments === "function") {
+        modifiedMessages.push(this.formatMessageWithAttachments(msg));
+      } else {
+        modifiedMessages.push(msg);
+      }
     });
     return modifiedMessages;
+  }
+
+  formatMessageWithAttachments(message) {
+    if (!message.attachments || message.attachments.length === 0) {
+      return message;
+    }
+    const content = [{ type: "text", text: message.content }];
+    for (const attachment of message.attachments) {
+      content.push({
+        type: "image_url",
+        image_url: {
+          url: attachment.contentString,
+        },
+      });
+    }
+    const { attachments: _, ...rest } = message;
+    return {
+      ...rest,
+      content,
+    };
   }
 
   showcaseFunctions(functions = []) {
