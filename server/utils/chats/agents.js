@@ -44,15 +44,12 @@ async function grepAgents({
   thread = null,
   attachments = [],
 }) {
-  let nativeToolingEnabled = false;
-
-  // If the workspace is in automatic mode, check if the workspace supports native tooling
-  // to determine if the agent flow should be used or not.
-  if (workspace?.chatMode === "automatic")
-    nativeToolingEnabled = await Workspace.supportsNativeToolCalling(workspace);
+  // If the workspace is in automatic mode, we always trigger the agent flow
+  // regardless of native tool calling support, allowing the fallback system to work seamlessly.
+  const isAutomaticMode = workspace?.chatMode === "automatic";
 
   const agentHandles = WorkspaceAgentInvocation.parseAgents(message);
-  if (agentHandles.length > 0 || nativeToolingEnabled) {
+  if (agentHandles.length > 0 || isAutomaticMode) {
     const { invocation: newInvocation } = await WorkspaceAgentInvocation.new({
       prompt: message,
       workspace: workspace,
