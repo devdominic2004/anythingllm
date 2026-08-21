@@ -5,6 +5,7 @@ import Workspace from "@/models/workspace";
 import { EditMessageAction } from "./EditMessage";
 import RenderMetrics from "./RenderMetrics";
 import ActionMenu from "./ActionMenu";
+import DiagnosticsButton from "./DiagnosticsModal";
 import { useTranslation } from "react-i18next";
 
 const Actions = ({
@@ -18,6 +19,9 @@ const Actions = ({
   isEditing,
   role,
   metrics = {},
+  sources = [],
+  uuid = null,
+  error = null,
 }) => {
   const { t } = useTranslation();
   const [selectedFeedback, setSelectedFeedback] = useState(feedbackScore);
@@ -38,6 +42,14 @@ const Actions = ({
             className={`flex justify-start items-center gap-x-[8px] ${role === "user" ? "flex-row-reverse" : ""}`}
           >
             <CopyMessage message={message} />
+            <DiagnosticsButton
+              chatId={chatId}
+              uuid={uuid}
+              metrics={metrics}
+              role={role}
+              error={error}
+              sources={sources}
+            />
             <EditMessageAction
               chatId={chatId}
               role={role}

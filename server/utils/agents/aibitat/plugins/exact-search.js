@@ -156,7 +156,7 @@ const exactSearch = {
                     : res.text;
                 combinedText += `Source: ${title}\nContent:\n${textSnippet}\n\n`;
               }
-              combinedText += `Please provide a clear, helpful, and natural response to the user's prompt based on the exact match information above.`;
+              combinedText += `Please provide a clear, detailed, and natural response summarizing the incident details based on the exact match information above.`;
 
               return combinedText;
             } catch (error) {

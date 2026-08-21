@@ -304,7 +304,8 @@ ${JSON.stringify(def.parameters.properties, null, 4)}\n`;
     // eslint-disable-next-line
     try {
       let completion = { content: "" };
-      if (functions.length > 0) {
+      const hasFunctionResult = messages.some((msg) => msg.role === "function");
+      if (functions.length > 0 && !hasFunctionResult) {
         const {
           toolCall,
           text,

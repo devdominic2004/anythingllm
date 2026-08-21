@@ -1,6 +1,7 @@
 import React, { memo, useLayoutEffect, useRef, useState } from "react";
 import { Info, Warning } from "@phosphor-icons/react";
 import Actions from "./Actions";
+import DiagnosticsButton from "./Actions/DiagnosticsModal";
 import renderMarkdown from "@/utils/chat/markdown";
 import Citations from "../Citation";
 import { v4 } from "uuid";
@@ -67,12 +68,21 @@ const HistoricalMessage = ({
     return (
       <div key={uuid} className="flex justify-start w-full">
         <div className="py-4 pl-0 pr-4 flex flex-col md:max-w-[80%]">
-          <div className="p-2 rounded-lg bg-red-50 text-red-500">
-            <span className="inline-block">
-              <Warning className="h-4 w-4 mb-1 inline-block" /> Could not
-              respond to message.
-            </span>
-            <p className="text-xs font-mono mt-2 border-l-2 border-red-300 pl-2 bg-red-200 p-2 rounded-sm">
+          <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 font-medium text-sm text-red-400">
+                <Warning className="h-4 w-4 inline-block" /> Could not respond to message.
+              </span>
+              <DiagnosticsButton
+                chatId={chatId}
+                uuid={uuid}
+                metrics={metrics}
+                role="assistant"
+                error={error}
+                sources={sources}
+              />
+            </div>
+            <p className="text-xs font-mono mt-2 border-l-2 border-red-500/50 pl-2 bg-black/40 p-2 rounded text-red-200">
               {error}
             </p>
           </div>
@@ -189,6 +199,9 @@ const HistoricalMessage = ({
             role={role}
             forkThread={forkThread}
             metrics={metrics}
+            sources={sources}
+            uuid={uuid}
+            error={error}
           />
         </div>
         {role === "assistant" && <Citations sources={sources} />}

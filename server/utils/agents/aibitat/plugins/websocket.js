@@ -77,12 +77,37 @@ const websocket = {
         aibitat.onError(async (error) => {
           let errorMessage =
             error?.message || "An error occurred while running the agent.";
-          console.error(chalk.red(`   error: ${errorMessage}`), error);
+          const errorDetails = [];
+          if (error?.status) errorDetails.push(`HTTP ${error.status}`);
+          if (error?.code) errorDetails.push(`Code: ${error.code}`);
+          if (error?.cause?.message) errorDetails.push(`Cause: ${error.cause.message}`);
+          if (error?.response?.data) {
+            const dataStr =
+              typeof error.response.data === "string"
+                ? error.response.data
+                : JSON.stringify(error.response.data);
+            errorDetails.push(`Response: ${dataStr}`);
+          }
+          if (error?.stack) {
+            const stackLines = error.stack
+              .split("\n")
+              .slice(1, 3)
+              .map((l) => l.trim())
+              .join(" -> ");
+            if (stackLines) errorDetails.push(`Trace: ${stackLines}`);
+          }
+
+          const fullErrorInfo =
+            errorDetails.length > 0
+              ? `${errorMessage} [${errorDetails.join(" | ")}]`
+              : errorMessage;
+
+          console.error(chalk.red(`   error: ${fullErrorInfo}`), error);
           aibitat.introspect(
-            `Error encountered while running: ${errorMessage}`
+            `⚠️ Error details: ${fullErrorInfo}`
           );
           socket.send(
-            JSON.stringify({ type: "wssFailure", content: errorMessage })
+            JSON.stringify({ type: "wssFailure", content: fullErrorInfo })
           );
           aibitat.terminate();
         });
