@@ -87,14 +87,11 @@ async function asDocX({
     
     if (documentXml) {
       rawXmlContent = documentXml.getData().toString("utf8");
-      const { parse } = require("node-html-parser");
+      const cheerio = require("cheerio");
 
       function parseDocxXmlToMarkdown(xmlString) {
-        const root = parse(xmlString);
+        const $ = cheerio.load(xmlString, { xmlMode: true });
         let markdown = "";
-
-        const body = root.getElementsByTagName("w:body")[0];
-        if (!body) return "";
 
         function parseParagraph(pNode) {
           let text = "";
@@ -102,11 +99,11 @@ async function asDocX({
           let listIndent = 0;
           let headingLevel = 0;
 
-          const pPr = pNode.getElementsByTagName("w:pPr")[0];
-          if (pPr) {
-            const pStyle = pPr.getElementsByTagName("w:pStyle")[0];
-            if (pStyle) {
-              const val = pStyle.getAttribute("w:val") || "";
+          const pPr = $(pNode).children("w\\:pPr").first();
+          if (pPr.length) {
+            const pStyle = pPr.children("w\\:pStyle").first();
+            if (pStyle.length) {
+              const val = pStyle.attr("w:val") || "";
               if (val.startsWith("Heading")) {
                 const level = parseInt(val.replace("Heading", ""), 10);
                 if (!isNaN(level) && level >= 1 && level <= 6) {
@@ -115,40 +112,40 @@ async function asDocX({
               }
             }
 
-            const numPr = pPr.getElementsByTagName("w:numPr")[0];
-            if (numPr) {
+            const numPr = pPr.children("w\\:numPr").first();
+            if (numPr.length) {
               isList = true;
-              const ilvl = numPr.getElementsByTagName("w:ilvl")[0];
-              if (ilvl) {
-                listIndent = parseInt(ilvl.getAttribute("w:val") || "0", 10);
+              const ilvl = numPr.children("w\\:ilvl").first();
+              if (ilvl.length) {
+                listIndent = parseInt(ilvl.attr("w:val") || "0", 10);
               }
             }
           }
 
-          const runs = pNode.getElementsByTagName("w:r");
-          for (const rNode of runs) {
+          const runs = $(pNode).children("w\\:r");
+          runs.each((_, rNode) => {
             let runText = "";
-            const tNodes = rNode.getElementsByTagName("w:t");
-            for (const tNode of tNodes) {
-              runText += tNode.text;
-            }
-            
-            if (!runText) continue;
+            const tNodes = $(rNode).children("w\\:t");
+            tNodes.each((_, tNode) => {
+              runText += $(tNode).text();
+            });
 
-            const rPr = rNode.getElementsByTagName("w:rPr")[0];
+            if (!runText) return;
+
+            const rPr = $(rNode).children("w\\:rPr").first();
             let isBold = false;
             let isItalic = false;
             let isStrike = false;
 
-            if (rPr) {
-              const b = rPr.getElementsByTagName("w:b")[0];
-              if (b && b.getAttribute("w:val") !== "0" && b.getAttribute("w:val") !== "false") isBold = true;
+            if (rPr.length) {
+              const b = rPr.children("w\\:b").first();
+              if (b.length && b.attr("w:val") !== "0" && b.attr("w:val") !== "false") isBold = true;
               
-              const i = rPr.getElementsByTagName("w:i")[0];
-              if (i && i.getAttribute("w:val") !== "0" && i.getAttribute("w:val") !== "false") isItalic = true;
+              const i = rPr.children("w\\:i").first();
+              if (i.length && i.attr("w:val") !== "0" && i.attr("w:val") !== "false") isItalic = true;
 
-              const strike = rPr.getElementsByTagName("w:strike")[0];
-              if (strike && strike.getAttribute("w:val") !== "0" && strike.getAttribute("w:val") !== "false") isStrike = true;
+              const strike = rPr.children("w\\:strike").first();
+              if (strike.length && strike.attr("w:val") !== "0" && strike.attr("w:val") !== "false") isStrike = true;
             }
 
             if (isStrike) runText = `~~${runText}~~`;
@@ -156,7 +153,7 @@ async function asDocX({
             if (isBold) runText = `**${runText}**`;
 
             text += runText;
-          }
+          });
 
           if (text.trim().length === 0) return "";
 
@@ -170,34 +167,36 @@ async function asDocX({
           return text;
         }
 
-        for (const node of body.childNodes) {
-          if (node.rawTagName === "w:p") {
+        $("w\\:body").children().each((_, node) => {
+          if (node.tagName === "w:p") {
             const pText = parseParagraph(node);
             if (pText) markdown += pText + "\n\n";
-          } else if (node.rawTagName === "w:tbl") {
-            const rows = node.getElementsByTagName("w:tr");
+          } else if (node.tagName === "w:tbl") {
             let isFirstRow = true;
-            for (const row of rows) {
-              const cells = row.getElementsByTagName("w:tc");
+            $(node).children("w\\:tr").each((_, row) => {
               let rowText = "|";
               let headerDivider = "|";
-              for (const cell of cells) {
-                const cellParas = cell.getElementsByTagName("w:p");
-                let cellText = cellParas.map(p => parseParagraph(p).replace(/^[#-]+\s*/, "")).join(" ").replace(/\n/g, " ");
-                rowText += ` ${cellText.trim() || " "} |`;
+              $(row).children("w\\:tc").each((_, cell) => {
+                const cellParas = $(cell).children("w\\:p");
+                let cellText = "";
+                cellParas.each((_, p) => {
+                  cellText += parseParagraph(p).replace(/^[#-]+\s*/, "") + " ";
+                });
+                cellText = cellText.trim().replace(/\n/g, " ");
+                rowText += ` ${cellText || " "} |`;
                 if (isFirstRow) {
                   headerDivider += " --- |";
                 }
-              }
+              });
               markdown += rowText + "\n";
               if (isFirstRow) {
                 markdown += headerDivider + "\n";
                 isFirstRow = false;
               }
-            }
+            });
             markdown += "\n";
           }
-        }
+        });
 
         return markdown.trim();
       }

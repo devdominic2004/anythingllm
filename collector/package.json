@@ -20,6 +20,7 @@
     "@xenova/transformers": "^2.14.0",
     "adm-zip": "^0.5.10",
     "body-parser": "^1.20.3",
+    "cheerio": "^1.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "epub2": "git+https://github.com/Mintplex-Labs/epub2-static.git#main",
